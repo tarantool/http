@@ -1,0 +1,17 @@
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_*.cmake
+install_manifest.txt
+*.a
+*.cbp
+*.d
+*.dylib
+*.gcno
+*.gcda
+*.user
+*.o
+*.reject
+*.so
+*~
+.gdb_history
