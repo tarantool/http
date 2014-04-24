@@ -1,0 +1,611 @@
+box.httpd test
+lua http_lib.split_url('http://abc')
+---
+ - http
+ - abc
+ - nil
+ - /
+ - 
+...
+lua http_lib.split_url('http://abc/')
+---
+ - http
+ - abc
+ - nil
+ - /
+ - 
+...
+lua http_lib.split_url('http://abc?')
+---
+ - http
+ - abc
+ - nil
+ - /
+ - 
+...
+lua http_lib.split_url('http://abc:')
+---
+ - http
+ - abc
+ - nil
+ - /
+ - 
+...
+lua http_lib.split_url('http://abc:123')
+---
+ - http
+ - abc
+ - 123
+ - /
+ - 
+...
+lua http_lib.split_url('http://abc:123?')
+---
+ - http
+ - abc
+ - 123
+ - /
+ - 
+...
+lua http_lib.split_url('http://abc:123?query')
+---
+ - http
+ - abc
+ - 123
+ - /
+ - query
+...
+lua http_lib.split_url('http://domain.subdomain.com:service?query')
+---
+ - http
+ - domain.subdomain.com
+ - service
+ - /
+ - query
+...
+lua http_lib.split_url('google.com')
+---
+ - http
+ - google.com
+ - nil
+ - /
+ - 
+...
+lua http_lib.split_url('google.com?query')
+---
+ - http
+ - google.com
+ - nil
+ - /
+ - query
+...
+lua http_lib.split_url('google.com/abc?query')
+---
+ - http
+ - google.com
+ - nil
+ - /abc
+ - query
+...
+lua http_lib.split_url('https://google.com/abc?query')
+---
+ - https
+ - google.com
+ - nil
+ - /abc
+ - query
+...
+lua http_lib.split_url('https://google.com:443/abc?query')
+---
+ - https
+ - google.com
+ - 443
+ - /abc
+ - query
+...
+lua http_lib.split_url('https://')
+---
+ - https
+ - 
+ - nil
+ - /
+ - 
+...
+lua http_lib.template("<% for i = 1, cnt do %> <%= abc %> <% end %>", {abc = '1 <3>&" ', cnt = 3})
+---
+ -  1 &lt;3&gt;&amp;&quot;   1 &lt;3&gt;&amp;&quot;   1 &lt;3&gt;&amp;&quot;  
+ - return function(_q, _i, cnt, abc)  for i = 1, cnt do  _i(" ") _q( abc ) _i(" ")  end   end
+...
+lua http_lib.template("<% for i = 1, cnt do %> <%= ab %> <% end %>", {abc = '1 <3>&" ', cnt = 3})
+---
+ -  nil  nil  nil 
+ - return function(_q, _i, cnt, abc)  for i = 1, cnt do  _i(" ") _q( ab ) _i(" ")  end   end
+...
+lua http_lib.template("<% ab() %>", {ab = '1'})
+---
+error: 'box.httpd.template: users template:1:  attempt to call local ''ab'' (a string value)'
+...
+lua dump = function(d, ...) if type(d) ~= 'table' then return "'" .. box.cjson.encode(d, ...) .. "'" end local o = {} for k, v in pairs(d) do if type(v) ~= 'function' then o[k] = v end end  return "'" .. box.cjson.encode(o) .. "'" end
+---
+...
+lua hdump = function(h) h.server = nil return dump(h) end
+---
+...
+lua dump(http_server.parse_request('abc'))
+---
+ - '{"error":"Broken request line","headers":{}}'
+...
+lua dump(http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n"))
+---
+ - '{"path":"\/","broken":false,"method":"GET","query":"","body":"","proto":[1,1],"headers":{"host":"s.com"}}'
+...
+lua dump(http_server.parse_request("GET / HTTP/1.0\nHost: s.com\nHost: cde.com"))
+---
+ - '{"path":"\/","broken":false,"query":"","method":"GET","proto":[1,0],"headers":{"host":"s.com, cde.com"}}'
+...
+lua dump(http_server.parse_request("GET / HTTP/0.9\nX-Host: s.com\r\n\r\nbody text"))
+---
+ - '{"path":"\/","broken":false,"method":"GET","query":"","body":"body text","proto":[0,9],"headers":{"x-host":"s.com"}}'
+...
+lua dump(http_lib.parse_response('abc'))
+---
+ - '{"error":"Too short response line","headers":{}}'
+...
+lua dump(http_lib.parse_response("HTTP/1.0 200 Ok\nHost: s.com\r\n\r\n"))
+---
+ - '{"reason":"Ok","status":200,"body":"","proto":[1,0],"headers":{"host":"s.com"}}'
+...
+lua dump(http_lib.parse_response("HTTP/1.0 200 Ok\nHost: s.com\r\n\r\ntext of body"))
+---
+ - '{"reason":"Ok","status":200,"body":"text of body","proto":[1,0],"headers":{"host":"s.com"}}'
+...
+lua dump(http_client.request("GET", "http://mail.ru/").status)
+---
+ - '200'
+...
+lua dump(http_client.get("http://mail.ru/").status)
+---
+ - '200'
+...
+lua tonumber(http_client.request("GET", "http://mail.ru/").headers["content-length"]) > 0
+---
+ - true
+...
+lua http_client.request("GET", "http://mail.ru/").proto[1]
+---
+ - 1
+...
+lua dump(http_client.request("GET", "http://localhost:88/"))
+---
+ - '{"status":595,"reason":"Connection refused"}'
+...
+lua http_client.request("GET", "http://www.yandex.ru/?text=55,37").body:match("<(html)")
+---
+ - html
+...
+lua httpd = http_server.new('127.0.0.1', 12345, { app_dir = 'http_test_app' })
+---
+...
+lua type(httpd:route({path = '/abc/:cde/:def', name = 'test'}, function() end))
+---
+ - table
+...
+lua type(httpd:route({path = '/abc'}, function() end))
+---
+ - table
+...
+lua type(httpd:route({path = '/ctxaction'}, 'module.controller#action'))
+---
+ - table
+...
+lua type(httpd:route({path = '/absentaction'}, 'module.controller#absent'))
+---
+ - table
+...
+lua type(httpd:route({path = '/absent'}, 'module.absent#action'))
+---
+ - table
+...
+lua type(httpd:route({path = '/abc/:cde'}, function() end))
+---
+ - table
+...
+lua type(httpd:route({path = '/abc_:cde_def'}, function() end))
+---
+ - table
+...
+lua type(httpd:route({path = '/abc-:cde-def'}, function() end))
+---
+ - table
+...
+lua type(httpd:route({path = '/aba*def'}, function() end))
+---
+ - table
+...
+lua type(httpd:route({path = '/abb*def/cde', name = 'star'}, function() end))
+---
+ - table
+...
+lua type(httpd:route({path = '/abb*def/cde', name = 'star'}, function() end))
+---
+error: './box/http/server.lua:15: Route with name ''star'' is already exists'
+...
+lua type(httpd:helper('helper_title', function(self, a) return 'Hello, ' .. a end))
+---
+ - table
+...
+lua httpd:match('GET', '/')
+---
+ - nil
+...
+lua dump(httpd:match('GET', '/abc').endpoint.path)
+---
+ - '"\/abc"'
+...
+lua dump(httpd:match('GET', '/abc').stash)
+---
+ - '{}'
+...
+lua dump(httpd:match('GET', '/abc/123').endpoint.path)
+---
+ - '"\/abc\/:cde"'
+...
+lua dump(httpd:match('GET', '/abc/123').stash)
+---
+ - '{"cde":"123"}'
+...
+lua dump(httpd:match('GET', '/abc/123/122').endpoint.path)
+---
+ - '"\/abc\/:cde\/:def"'
+...
+lua dump(httpd:match('GET', '/abc/123/122').stash)
+---
+ - '{"def":"122","cde":"123"}'
+...
+lua dump(httpd:match('GET', '/abc_123-122').endpoint.path)
+---
+ - '"\/abc_:cde_def"'
+...
+lua dump(httpd:match('GET', '/abc_123-122').stash)
+---
+ - '{"cde_def":"123-122"}'
+...
+lua dump(httpd:match('GET', '/abc-123-def').endpoint.path)
+---
+ - '"\/abc-:cde-def"'
+...
+lua dump(httpd:match('GET', '/abc-123-def').stash)
+---
+ - '{"cde":"123"}'
+...
+lua dump(httpd:match('GET', '/aba-123-dea/1/2/3').endpoint.path)
+---
+ - '"\/aba*def"'
+...
+lua dump(httpd:match('GET', '/aba-123-dea/1/2/3').stash)
+---
+ - '{"def":"-123-dea\/1\/2\/3"}'
+...
+lua dump(httpd:match('GET', '/abb-123-dea/1/2/3/cde').endpoint.path)
+---
+ - '"\/abb*def\/cde"'
+...
+lua dump(httpd:match('GET', '/abb-123-dea/1/2/3/cde').stash)
+---
+ - '{"def":"-123-dea\/1\/2\/3"}'
+...
+lua httpd:url_for('abcdef')
+---
+ - /abcdef
+...
+lua httpd:url_for('test')
+---
+ - /abc//
+...
+lua httpd:url_for('test', { cde = 'cde_v', def = 'def_v' })
+---
+ - /abc/cde_v/def_v
+...
+lua httpd:url_for('star', { def = '/def_v' })
+---
+ - /abb/def_v/cde
+...
+lua httpd:url_for('star', { def = '/def_v' }, { a = 'b', c = 'd' })
+---
+ - /abb/def_v/cde?a=b&c=d
+...
+lua ep = httpd:route({ path = '/test', file = 'test.html.el' }, function(cx) cx:render({ title = 'title: 123' }) end)
+---
+...
+lua httpd.routes[ #httpd.routes ].template
+---
+ - nil
+...
+lua type(httpd:start())
+---
+ - table
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/test')
+---
+...
+lua res.status
+---
+ - 200
+...
+lua res.status == 200
+---
+ - true
+...
+lua res.reason == 'Ok'
+---
+ - true
+...
+lua string.match(res.body, 'title: 123') == 'title: 123'
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/test1')
+---
+...
+lua res.status == 404
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/absent')
+---
+...
+lua res.status == 500
+---
+ - true
+...
+lua string.match(res.body, 'load module') == 'load module'
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/ctxaction')
+---
+...
+lua res.status == 200
+---
+ - true
+...
+lua string.match(res.body, 'Hello, Tarantool') == 'Hello, Tarantool'
+---
+ - true
+...
+lua string.match(res.body, 'action: action') == 'action: action'
+---
+ - true
+...
+lua string.match(res.body, 'controller: module[.]controller') == 'controller: module.controller'
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/ctxaction.js')
+---
+...
+lua res.status == 200
+---
+ - true
+...
+lua string.match(res.body, 'json template js') == 'json template js'
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/ctxaction.jsonaaa')
+---
+...
+lua res.status == 500
+---
+ - true
+...
+lua string.match(res.body, 'No such file') == 'No such file'
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/hello.html')
+---
+...
+lua res.status == 200
+---
+ - true
+...
+lua string.match(res.body, 'static html') == 'static html'
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/absentaction')
+---
+...
+lua res.status == 500
+---
+ - true
+...
+lua string.match(res.body, 'contain function') == 'contain function'
+---
+ - true
+...
+lua type(httpd:route({path = '/helper', file = 'helper.html.el'}))
+---
+ - table
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/helper')
+---
+...
+lua res.status == 200
+---
+ - true
+...
+lua res.reason == 'Ok'
+---
+ - true
+...
+lua string.match(res.body, 'Hello, world') == 'Hello, world'
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/helper?abc')
+---
+...
+lua res.status == 200
+---
+ - true
+...
+lua res.reason == 'Ok'
+---
+ - true
+...
+lua string.match(res.body, 'Hello, world') == 'Hello, world'
+---
+ - true
+...
+lua type(httpd:route({path = '/die', file = 'helper.html.el'}, function() error(123) end ))
+---
+ - table
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/die')
+---
+...
+lua res.status == 500
+---
+ - true
+...
+lua res.reason == 'Internal server error'
+---
+ - true
+...
+lua dump(http_lib.params())
+---
+ - '{}'
+...
+lua dump(http_lib.params(''))
+---
+ - '{}'
+...
+lua dump(http_lib.params('a'))
+---
+ - '{"a":""}'
+...
+lua dump(http_lib.params('a=b'))
+---
+ - '{"a":"b"}'
+...
+lua dump(http_lib.params('a=b&b=cde'))
+---
+ - '{"a":"b","b":"cde"}'
+...
+lua dump(http_lib.params('a=b&b=cde&a=1'))
+---
+ - '{"a":["b","1"],"b":"cde"}'
+...
+lua dump(http_lib.params('a=b&b=cde&a=1&a=10'))
+---
+ - '{"a":["b","1","10"],"b":"cde"}'
+...
+lua type(httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'POST = ' .. tx.req.body}) end ))
+---
+ - table
+...
+lua type(httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'GET = ' .. tx.req.body}) end ))
+---
+ - table
+...
+lua res = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
+---
+...
+lua res.body == 'POST = test'
+---
+ - true
+...
+lua res = http_client.post('http://127.0.0.1:12345/dit', 'test')
+---
+...
+lua res.body == 'POST = test'
+---
+ - true
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/dit')
+---
+...
+lua res.body == 'GET = '
+---
+ - true
+...
+lua type(httpd:route({method = 'POST', path = '/gparam' }, function(tx) tx:render({text = 'POST PARAM = ' .. dump( tx.req:post_param() )  }) end ))
+---
+ - table
+...
+lua type(httpd:route({path = '/gparam' }, function(tx) tx:render({text = 'PARAM = ' .. dump( tx.req:query_param() )  }) end ))
+---
+ - table
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/gparam?aaa=12343')
+---
+...
+lua res.body == [[PARAM = '{"aaa":"12343"}']]
+---
+ - true
+...
+lua res = http_client.request('POST', 'http://127.0.0.1:12345/gparam?aaa=12343', '')
+---
+...
+lua res.body == [[POST PARAM = '{}']]
+---
+ - true
+...
+lua res = http_client.request('POST', 'http://127.0.0.1:12345/gparam?aaa=12343', 'bbb=4321')
+---
+...
+lua res.body == [[POST PARAM = '{"bbb":"4321"}']]
+---
+ - true
+...
+lua type(httpd:route({path = '/bparam' }, function(tx) tx:render({text = 'PARAM = ' .. dump( tx.req:param() )  }) end ))
+---
+ - table
+...
+lua res = http_client.request('POST', 'http://127.0.0.1:12345/bparam?aaa=12343', 'bbb=4321')
+---
+...
+lua res.body == [[PARAM = '{"bbb":"4321","aaa":"12343"}']]
+---
+ - true
+...
+lua type(httpd:route({method = 'GET', path = '/cookie' }, function(tx) tx:cookie({name = 'name', value = 'value' }) tx:cookie({name = 'time', value = 'a ' .. tostring(tx:cookie('time')) }) tx:render({text = 'a ' .. tostring(tx:cookie('time'))  }) end ))
+---
+ - table
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/cookie')
+---
+...
+lua dump(res.status)
+---
+ - '200'
+...
+lua dump(res.body)
+---
+ - '"a nil"'
+...
+lua dump(res.headers['set-cookie'])
+---
+ - '"name=value;path=\/cookie, time=a%20nil;path=\/cookie"'
+...
+lua res = http_client.request('GET', 'http://127.0.0.1:12345/cookie', nil, { headers = { cookie = 'name=ignore; time=123' } })
+---
+...
+lua dump(res.status)
+---
+ - '200'
+...
+lua dump(res.body)
+---
+ - '"a 123"'
+...
+lua hdump(res.headers)
+---
+ - '{"set-cookie":"name=value;path=\/cookie, time=a%20123;path=\/cookie","content-length":"5","content-type":"text\/plain; charset=utf-8","connection":"close"}'
+...
+lua dump(res.headers['set-cookie'])
+---
+ - '"name=value;path=\/cookie, time=a%20123;path=\/cookie"'
+...
