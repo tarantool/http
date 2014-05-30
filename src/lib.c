@@ -405,7 +405,8 @@ http_parser_on_header(void *uobj, const char *name, size_t name_len,
 
 	luaL_Buffer b;
 	luaL_buffinit(L, &b);
-	for (int i = 0; i < name_len; i++) {
+	int i;
+	for (i = 0; i < name_len; i++) {
 		switch(name[i]) {
 			case 'A' ... 'Z':
 				luaL_addchar(&b, name[i] - 'A' + 'a');
