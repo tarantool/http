@@ -9,6 +9,9 @@ local package = package
 local mime_types = require('box.http.mime_types')
 local codes = require('box.http.codes')
 
+local socket = require('socket')
+local fiber = require('fiber')
+
 print("Plugin box.httpd init...")
 
 local function errorf(fmt, ...)
@@ -1047,7 +1050,7 @@ local function httpd_start(self)
     if type(self) ~= 'table' then
         error("box.httpd: usage: httpd:start()")
     end
-    local s = box.socket.tcp()
+    local s = socket.tcp()
     if s == nil then
         error("Can't create new tcp socket")
     end
@@ -1066,7 +1069,7 @@ local function httpd_start(self)
     rawset(self, 's', s)
     rawset(self, 'stop', httpd_stop)
 
-    box.fiber.wrap(function()
+    fiber.wrap(function()
         printf('box.httpd: started at host=%s, port=%s',
             self.host, self.port)
         while self.is_run do
@@ -1076,7 +1079,7 @@ local function httpd_start(self)
                 break
             elseif cs ~= 'timeout' then
                 es = sprintf('%s:%s', es, eport)
-                box.fiber.wrap(function() process_client(self, cs, es) end)
+                fiber.wrap(function() process_client(self, cs, es) end)
                 cs = nil
             end
         end

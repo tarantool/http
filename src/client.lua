@@ -1,7 +1,7 @@
 -- http.client
 
 local lib = require('box.http.lib') -- native library
-local socket_lib = require('box.socket')
+local socket_lib = require('socket')
 
 local function errorf(fmt, ...)
     error(string.format(fmt, ...))
