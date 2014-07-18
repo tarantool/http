@@ -1,7 +1,7 @@
 -- http.client
 
-local lib = require('box.http.lib') -- native library
-local socket_lib = require('socket')
+local lib = require('http.lib') -- native library
+local socket = require('socket')
 
 local function errorf(fmt, ...)
     error(string.format(fmt, ...))
@@ -15,7 +15,7 @@ local function retcode(code, reason)
 end
 
 local function connect(host, port)
-    local s = socket_lib.tcp()
+    local s = socket.tcp()
     if s == nil then
         return nil, "Can't create socket"
     end
@@ -86,7 +86,7 @@ local function request(method, url, body, opts)
     end
 
     if hdrs['user-agent'] == nil then
-        hdrs['user-agent'] = 'Tarantool box.http agent'
+        hdrs['user-agent'] = 'Tarantool http client'
     end
 
     if port == 80 then
@@ -113,7 +113,7 @@ local function request(method, url, body, opts)
 
     local pquery = ''
 
-    if string.len(query) > 0 then
+    if query ~= nil and string.len(query) > 0 then
         pquery = '?' .. query
     end
 
@@ -143,15 +143,18 @@ local function request(method, url, body, opts)
     end
 
     resp.body = ''
+    local data, res
     if resp.headers['content-length'] ~= nil then
-        res = { s:recv(tonumber(resp.headers['content-length'])) }
-        if #res > 1 then
-            -- TODO: text of error
-            return retcode(595, "Can't read response body")
-        end
+        data, res = s:recv(tonumber(resp.headers['content-length']))
+    else
+        data, res = s:readline({ "\r\n\r\n" })
+    end
+    if res ~= nil then
+        -- TODO: text of error
+        return retcode(595, "Can't read response body")
     end
 
-    resp.body = res[1]
+    resp.body = data
 
     s:close()
     return resp

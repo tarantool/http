@@ -92,12 +92,12 @@ domain:
 		lua_pushstring(L, uri);		/* host */
 		cnt++;
 	} else {
-		lua_pushstring(L, "");
+		lua_pushnil(L);
 		cnt++;
 	}
 	lua_pushnil(L);			/* port */
 	lua_pushstring(L, "/");		/* path */
-	lua_pushstring(L, "");		/* query */
+	lua_pushnil(L);			/* query */
 	cnt += 3;
 	return cnt;
 
@@ -121,7 +121,7 @@ port:
 	else
 		lua_pushnil(L);
 	lua_pushstring(L, "/");
-	lua_pushstring(L, "");
+	lua_pushnil(L);
 	cnt += 3;
 	return cnt;
 
@@ -135,7 +135,7 @@ path:
 		}
 	}
 	lua_pushstring(L, uri);
-	lua_pushstring(L, "");
+	lua_pushnil(L);
 	cnt += 2;
 	return cnt;
 
@@ -143,7 +143,7 @@ query:
 	if (*uri)
 		lua_pushstring(L, uri);
 	else
-		lua_pushstring(L, "");
+		lua_pushnil(L);
 	cnt++;
 
 	return cnt;
@@ -639,7 +639,7 @@ lbox_httpd_params(struct lua_State *L)
 }
 
 LUA_API int
-luaopen_box_http_lib(lua_State *L)
+luaopen_http_lib(lua_State *L)
 {
 	static const struct luaL_reg reg[] = {
 		{"split_url", lbox_http_split_url},

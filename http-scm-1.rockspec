@@ -16,13 +16,12 @@ build = {
     type = 'builtin',
 
     modules = {
-        ['box.http.lib'] = 'src/lib.c',
-        ['box.http.client'] = 'src/client.lua',
-        ['box.http.server'] = 'src/server.lua',
-        ['box.http.mime_types'] = 'src/mime_types.lua',
-        ['box.http.codes'] = 'src/codes.lua',
-    },
-    c99 = true,
+        ['http.lib'] = 'http/lib.c',
+        ['http.client'] = 'http/client.lua',
+        ['http.server'] = 'http/server.lua',
+        ['http.mime_types'] = 'http/mime_types.lua',
+        ['http.codes'] = 'http/codes.lua',
+    }
 }
 
 -- vim: syntax=lua

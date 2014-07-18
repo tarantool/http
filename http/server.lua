@@ -1,18 +1,16 @@
--- box.httpd
+-- http.server
 
-local lib = require('box.http.lib')
+local lib = require('http.lib')
 
--- A workaround for 1.5 sandbox
 local io = io
 local require = require
 local package = package
-local mime_types = require('box.http.mime_types')
-local codes = require('box.http.codes')
+local mime_types = require('http.mime_types')
+local codes = require('http.codes')
 
 local socket = require('socket')
 local fiber = require('fiber')
-
-print("Plugin box.httpd init...")
+local json = require('json')
 
 local function errorf(fmt, ...)
     error(string.format(fmt, ...))
@@ -74,8 +72,7 @@ local function type_by_format(fmt)
     return 'application/octet-stream'
 end
 
-local server_title =
-    sprintf('Tarantool/%s box.httpd server', box.info.version)
+local server_title = "Tarantool http server"
 
 local function reason_by_code(code)
     code = tonumber(code)
@@ -215,7 +212,7 @@ local mrequest = {
         end
 
         if item == 'json' then
-            local s, json = pcall(box.cjson.decode, req.body)
+            local s, json = pcall(json.decode, req.body)
             if s then
                 rawset(req, 'json', json)
                 return json
@@ -457,7 +454,7 @@ local function render(tx, opts)
             else
                 tx.resp.headers['content-type'] = 'application/json'
             end
-            tx.resp.body = box.json.encode(opts.json)
+            tx.resp.body = json.encode(opts.json)
             return
         end
 
@@ -762,7 +759,7 @@ end
 
 local function httpd_stop(self)
    if type(self) ~= 'table' then
-       error("box.httpd: usage: httpd:stop()")
+       error("httpd: usage: httpd:stop()")
     end
     if self.is_run then
         self.is_run = false
@@ -1048,7 +1045,7 @@ end
 
 local function httpd_start(self)
     if type(self) ~= 'table' then
-        error("box.httpd: usage: httpd:start()")
+        error("httpd: usage: httpd:start()")
     end
     local s = socket.tcp()
     if s == nil then
@@ -1069,8 +1066,8 @@ local function httpd_start(self)
     rawset(self, 's', s)
     rawset(self, 'stop', httpd_stop)
 
-    fiber.wrap(function()
-        printf('box.httpd: started at host=%s, port=%s',
+    fiber.create(function()
+        printf('httpd: started at host=%s, port=%s',
             self.host, self.port)
         while self.is_run do
             local cs, status, es, eport = s:accept(.1)
@@ -1079,7 +1076,7 @@ local function httpd_start(self)
                 break
             elseif cs ~= 'timeout' then
                 es = sprintf('%s:%s', es, eport)
-                fiber.wrap(function() process_client(self, cs, es) end)
+                fiber.create(function() process_client(self, cs, es) end)
                 cs = nil
             end
         end

@@ -14,13 +14,8 @@ include_directories(${TARANTOOL_INCLUDEDIR})
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
 
-# Build
-add_library(httpd SHARED src/lib.c)
-set_target_properties(httpd PROPERTIES PREFIX "" OUTPUT_NAME "lib")
+add_subdirectory(http)
 
-# Install
-install(TARGETS httpd LIBRARY DESTINATION ${MODULE_LIBDIR}/http)
-install(FILES src/server.lua DESTINATION ${MODULE_LUADIR}/http)
-install(FILES src/client.lua DESTINATION ${MODULE_LUADIR}/http)
-install(FILES src/mime_types.lua DESTINATION ${MODULE_LUADIR}/http)
-install(FILES src/codes.lua DESTINATION ${MODULE_LUADIR}/http)
+add_custom_target(test
+    COMMAND prove ./http.test.lua
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test/)
