@@ -1,7 +1,7 @@
 #!/usr/bin/env tarantool
 
 package.path = package.path..";../?.lua"
-package.cpath = package.cpath..";/data/work/http/?.so"
+package.cpath = package.cpath..";../?.so"
 
 tap = require('tap')
 http_lib = require('http.lib')
