@@ -103,7 +103,7 @@ lua dump(http_lib.parse_response("HTTP/1.0 200 Ok\nHost: s.com\r\n\r\ntext of bo
 
 test:test("http request", function(test)
     test:plan(11)
-    local r = http_client.get("http://mail.ru/")
+    local r = http_client.get("http://tarantool.org/")
     test:is(r.status, 200, 'mail.ru 200')
     test:is(r.proto[1], 1, 'mail.ru http 1.1')
     test:is(r.proto[2], 1, 'mail.ru http 1.1')
@@ -116,7 +116,7 @@ test:test("http request", function(test)
     test:is(r.proto[1], 1, 'go.mail.ru http 1.1')
     test:is(r.proto[2], 1, 'go.mail.ru http 1.1')
     test:ok(r.body:match("<(html)") ~= nil, "go.mail.ru is html", r)
-    test:is(http_client.request("GET", "http://mail.ru/").status, 200, 'alias')
+    test:is(http_client.request("GET", "http://tarantool.org/").status, 200, 'alias')
 end)
 
 --[[
