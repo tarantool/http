@@ -617,8 +617,8 @@ local function normalize_headers(hdrs)
     return res
 end
 
-local function process_client(self, s, peer)
-
+local function process_client(self, s, remote_addr, remote_port)
+    local peer = sprintf('%s:%s', remote_addr, remote_port)
     while true do
 
         local hdrs = {
@@ -649,6 +649,7 @@ local function process_client(self, s, peer)
             s:send(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
             break
         end
+        rawset(p, 'peer', {host=remote_addr, port=remote_port})
 
         -- first access at body will load body
         if p.method ~= 'GET' then
@@ -1075,8 +1076,8 @@ local function httpd_start(self)
                 printf("Can't accept socket: %s", es)
                 break
             elseif cs ~= 'timeout' then
-                es = sprintf('%s:%s', es, eport)
-                fiber.create(function() process_client(self, cs, es) end)
+                eport = tonumber(eport)
+                fiber.create(function() process_client(self, cs, es, eport) end)
                 cs = nil
             end
         end
