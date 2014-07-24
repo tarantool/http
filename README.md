@@ -6,7 +6,7 @@
 
 ### Installation
 
-Add [rocks.tarantool.org][] to your luarocks repository.
+Add http://rocks.tarantool.org to your luarocks repository.
 Then use `luarocks install http`
 
 ### Usage
