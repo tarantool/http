@@ -1,38 +1,47 @@
-В данный плагин включены следующие вещи
+# http - a [Tarantool][] rock for an HTTP client and a server
 
-1. сервер http (частично HTTP/1.1)
-1. клиент http (пока без SSL)
+[![Build Status](https://travis-ci.org/tarantool/http.png?branch=master)](https://travis-ci.org/tarantool/http)
 
-## Клиент http
+## Getting Started
 
-Позволяет выполнять http запросы
+### Installation
+
+Add [rocks.tarantool.org][] to your luarocks repository.
+Then use `luarocks install http`
+
+### Usage
+
+``` lua
+    client = require('http.client')
+    print(client.get("http://mail.ru/").status)
+```
+
+## HTTP client
+
+Any kind of HTTP 1.1 query (no SSL support yet).
 
 ### box.http.request(method, url, body[, opts])
 
-Выполняет http-запрос на указанный урл (`url`).
-В качестве метода `method` может быть передано значение `GET` или `POST`.
+Issue an HTTP request at the given URL (`url`).
+`method` can be either `GET` or `POST`.
 
-Если `body` не указан (`nil`), то его значение принимается равным значению
-"пустая строка".
+If `body` is `nil`, the body is an empty string, otherwise
+the string passed in `body`.
 
-Опциональная таблица `opts` может содержать в себе дополнительные опции/поля.
-В частности:
+`opts` is an optional Lua table with methods, and may contain the following
+keys:
 
-* `opts.headers` - допзаголовки, которые необходимо передать серверу
-* `opts.timeout` - таймаут на выполнение http-запроса (пока не реализовано)
+* `headers` - additional HTTP headers to send to the server
 
+Returns a Lua table with:
 
-Возвращает луа-табличку со следующими полями:
+* `status` - HTTP response status
+* `reason` - HTTP response status text
+* `headers` - a Lua table with normalized HTTP headers
+* `body` - response body
+* `proto` - protocol version
 
-* `status` - статус ответа удаленного HTTP-сервера
-* `reason` - текстовый статус ответа удаленного HTTP-сервера
-* `headers` - табличка с нормализованными заголовками ответа
-* `body` - тело ответа
-* `proto` - версия протокола
-
-На настоящее время поддерживается только протокол http (https в планах)
-
-#### Примеры
+#### Example
 
 ```lua
 
@@ -40,58 +49,65 @@
     r = box.http.request('POST', 'http://google.com', {}, 'text=123')
 
 ```
-## Сервер http
+## HTTP server
 
-Сервер можно инициализировать на произвольном порту к которому у тарантула
-имеется доступ на `bind` (если тарантул запущен не как `root`, то
-привилегированные порты могут быть недоступны).
+The server is an object which is configured with HTTP request
+handlers, routes (paths), templates, and a port to bind to.
+Unless Tarantool is running under a superuser, ports numbers
+below 1024 may be unavailable.
 
-Запуск сервера производится с использованием следующих стадий:
+The server can be started and stopped any time. Multiple
+servers can be creatd.
 
-* Создание сервера (`httpd = box.httpd.new`)
-* Конфигурирование роутинга (`httpd:route(...)`)
-* Собственно запуск сервера (`httpd:start()`)
-* Останов сервера (`httpd:stop()`)
+To start a server:
 
-### Создание сервера `box.httpd.new`
+* create it: `httpd = box.httpd.new(...)`
+* configure "routing" `httpd:route(...)`
+* start it with `httpd:start()`
+* stop with `httpd:stop()`
+
+### `box.httpd.new()` - create an HTTP server
 
 ```lua
-
     httpd = box.httpd.new(host, port[, { options } ])
-
 ```
 
-Для запуска httpd-сервера обязательно указать хост и порт на которые данный
-сервер будет забинден, а так же дополнительные опции:
+'host' and 'port' must  contain the interface and port to bind to.
+'options' may contain:
 
-* `max_header_size` (по умолчанию - 4096 байт) - максимальный размер
-принимаемого заголовка HTTP-запроса;
-* `header_timeout` (по умолчанию - 100 секунд) - максимальное время для
-передачи заголовков клиентом (если клиент после коннекта за это время не
-передаст полный заголовок, то связь с ним будет принудительно разорвана);
-* `templates` (по умолчанию - '.' (рабочая директория тарантула) - путь
-к директории с шаблонами html;
-* `handler` - функция-обработчик http-запросов (если пользователь не хочет
-использовать встроенную в сервер систему работы с роутами итп);
-* `charset` - значение кодировки для ответов с типом `text/html`,
-`text/plain` и `application/json`.
+* `max_header_size` (default is 4096 bytes) - a limit on 
+HTTP request header size
+* `header_timeout` (default: 100 seconds) - a time out until
+the server stops reading HTTP headers sent by the client.
+The server closes the client connection if the client can't 
+manage to send its headers in the given amount of time.
+* `app_dir` (default: '.', the server working directory) - 
+a path to the directory with HTML templates and controllers
+* `handler` - a Lua function to handle HTTP requests (this is 
+a handler to use if the module "routing" functionality is not
+needed).
+* `charset` - the character set for server responses of 
+type `text/html`, `text/plain` and `application/json`.
 
-#### Низкий уровень (определение собственного `handler`)
+#### Arguments of the `handler()` callback
 
-Если пользователь определяет `handler` самостоятельно, то эта функция примет
-на вход распарсенный запрос (табличка с полями):
+If `handler` is given in httpd options, it gets
+involved on every HTTP request, and the built-in routing
+mechanism is unused.
+The arguments of `handler` are:
 
-* `proto` - версия протокола запроса
-* `path` - путь запроса
-* `query` - строка параметров запроса
-* `method` - тип запроса
-* `body` - тело запроса
+* `proto` - protocol version
+* `path` - request path (like, '/index.html')
+* `query` - a string with GET or POST request arguments
+* `method` - a string with request type ("GET" or "POST")
+* `body` - request body
 
-Функция должна вернуть таблицу, содержающую три значения:
+The function is expected to return a Lua table (array) with
+these elements:
 
-1. код ответа
-1. хеш нормализованных заголовков (если nil, то - заголовки по умолчанию)
-1. тело ответа (nil == '', таблица - конкатенируется)
+1. HTTP response code
+1. a Lua table with normalized headers (pass 'nil' for default headers)
+1. response body (pass 'nil' for empty body)
 
 ```lua
 
@@ -109,106 +125,89 @@
 
 ```
 
-### Обычное использование
+### Using routes
 
-В общем случае пользователь может сконфигурировать сервер на автоматическое
-распределение запросов между различными обработчиками. Для этого в сервер
-встроен механизм роутинга, аналогичный фреймворку
-[Mojolicious](http://mojolicio.us/perldoc/Mojolicious/Guides/Routing).
+It is possible to automatically route requests between different
+handlers, depending on request path. The routing API is inspired
+by [Mojolicious](http://mojolicio.us/perldoc/Mojolicious/Guides/Routing) API.
 
-Роуты можно определять:
+Routes can be defined using either:
 
-1. непосредственно
-1. используя простые подстановки
-1. используя агрессивные подстановки
+1. and exact match, e.g. "index.php"
+1. with simple regular expressions
+1. with extended regular expressions
 
-Примеры роутов:
+Route examples:
 
 ```text
 
-'/'                 -- простой роут
-'/abc'              -- простой роут
-'/abc/:cde'         -- роут с простой подстановкой
-'/abc/:cde/:def'    -- роут с простой подстановкой
-'/ghi*path'         -- роут с агрессивной подстановкой
+'/'                 -- a simple route
+'/abc'              -- a simple route
+'/abc/:cde'         -- a route using a simple regular expression
+'/abc/:cde/:def'    -- a route using a simple regular expression
+'/ghi*path'         -- a route using an extended regular expression
 
 ```
 
-конфигурирование роутинга производится при помощи вызова метода `route` у
-созданного httpd сервера.
+To conigure a route, use 'route()' method of httpd object:
 
 ```lua
-
-httpd
-    :route({ path = '/path/to' }, 'controller#action')
-    :route({ path = '/', template = 'Hello <%= var %>' }, handle1)
-    :route({ path = '/:abc/cde', file = 'users.html.el' }, handle2)
-    ...
+httpd:route({ path = '/path/to' }, 'controller#action')
+httpd:route({ path = '/', template = 'Hello <%= var %>' }, handle1)
+httpd:route({ path = '/:abc/cde', file = 'users.html.el' }, handle2)
+...
 
 ```
 
-Каждый новый вызов route добавляет новый обработчик в список роутов
-http-сервера.
+`route()` first argument is a Lua table with one or several keys:
 
-При этом пользователь должен передать:
+* `file` - a template file name (if relative, then to path
+  `{app_dir}/tempalates`, where app_dir is the path set when creating the
+server). If no template file name extention is provided, the extention is
+set to ".html.el", meaning HTML with embedded Lua
+* `template` - template Lua variable name, in case the template
+is a Lua variable. If `template` is a function, it's called on every
+request to get template body. This is useful if template body must be
+taken from a database
+* `path` - route path, as described earlier
+* `name` - route name
 
-* `file` - имя файла (начиная от директории `{app_dir}/templates`,
-см. конфигурирование http-сервера в параметрах конструктора) с html-шаблоном.
-Если расширение файла не указано, то автоматически подставляется `.html.el`
-(html with Embedded Lua)
-* `template` - тело шаблона (если шаблон уже прочитан в память). Если
-`template` представляет собой ссылку на функцию, то она будет вызываться
-каждый раз для того чтобы получить тело шаблона (пользователь может
-использовать ее для выборки шаблона из БД).
-* `path` - путь роута (примеры выше)
-* `name` - имя роута
+The second argument is the route handler to be used to produce
+a response to the request.
 
-Так же пользователь передает обработчик, который будет использован для
-обработки данного запроса.
+A typical usage is to avoid passing `file` and `template` arguments, 
+since these take time to evaluate, but these arguments are useful
+for writing tests or defining HTTP servers with just one "route".
 
-Классическое использование использование роутинга не предполагает указания
-директив `file`, `template` (они могут использоваться для написания тестов
-или "серверов одного роута").
+The handler can also be passed as a string of form 'filename#functionname'.
+In that case, handler body is taken from a file in `{app_dir}/controllers` directory.
 
-Обработчик лучше всего передавать как строку 'имя модуля#имя функции в модуле'.
+#### Summary of the stuff in `app_dir`
 
-В этом случае будет подгружен модуль с заданным именем из
-директории `{app_dir}/controllers`, в этом модуле будет произведен поиск
-функции с заданным именем и эта функция будет использоваться в качестве
-контроллера.
+* `public` - is a path to store static content. Anything in this path
+defines a route which matches the file name, and the server serves this
+file automatically, as is. Note, that the server doesn't use sendfile(),
+and reads the entire content of the file in memory before passing
+it to the client. Caching is used, unless is turned on. So this is 
+suitable for large files, use nginx instad.
+* `templates` -  a path to templates
+* `controllers` - a path to Lua controllers lua. For example,
+controller name 'module.submodule#foo' maps to `{app_dir}/controllers/module.submodule.lua`.
 
+#### Route handlers
 
-#### Структура `app_dir`
+A route handler is much simpler than a generic handler and is passed
+a single Lua table with the following keys:
 
-Содержит в себе следующие каталоги:
+* `req` - the request itself
+* `resp` - an object to prepare a response
 
-* `public` - хранит произвольные статические
-файлы, которые будут отдаваться (as is) http-сервером.
-При пользовании данной возможностью необходимо учитывать следующее
-обстоятельство: Файл всегда считывается в память ЦЕЛИКОМ (если не отключено
-кеширование - кешируется), затем отдается клиенту. Таким образом
-не стоит использовать данный механизм для раздачи большого объема
-контента. Если все же такое требуется, то необходимо использовать
-nginx перед тарантулом.
-* `templates` - хранит шаблоны файлов.
-* `controllers` - хранит контроллеры на lua. Например 'module.submodule#foo' в
-имени контроллера, означает файл: `{app_dir}/controllers/module.submodule.lua`.
+`resp` object has the following methods:
 
-
-#### Обработчик роута
-
-Принимает один параметр - табличку-объект со следующими полями:
-
-* `req` - запрос
-* `resp` - объект для подготовки ответа
-
-и методами:
-
-* `stash(name[, value])` - доступ к переменным "захваченным" при
-диспетчеризации роутов
+* `stash(name[, value])` - get or set a variable "stashed"
+when dispatching a route:
 
 ```lua
-
 
     function hello(self)
         local id = self:stash('id')    -- сюда попадет часть :id
@@ -226,25 +225,24 @@ nginx перед тарантулом.
 
 ```
 
-* `redirect_to` - используется для управления перенаправлениями со
-страницы на страницу
-* `render({})` - вызывает рендер
-* `cookie` - позволяет получить cookie из запроса, либо установить их
-для ответа
-* `url_for` - получение адреса роута
+* `redirect_to` - to be used for HTTP redirection
+* `render({})` - to render a template
+* `cookie` - to get a cookie in the request, or pass a cookie to the
+client in the response
+* `url_for` - returns the route exact URL
 
-##### Зарезервированные стеши
+##### Special stash names
 
-* `controller` - имя модуля контроллера
-* `action` - имя функции-обработчика в модуле контроллера
-* `format` - текущий формат выдачи (например `html`, `txt` итп). Определяется
-автоматически по `path` в запросе (например `/abc.js` - переключает переменную
-`format` в значение `js`). На основании переменной `format` будет определен
-`content-type` ответа.
+* `controller` - controller name
+* `action` - handler name in the controller
+* `format` - the current output format (e.g. `html`, `txt`). Is
+detected automatically based on request `path` (for example, `/abc.js` -
+sets `format` to `js`). When producing a response, `format` is used
+to set response 'Content-type:'.
 
-#### работа с куками
+#### Working with cookies
 
-Для получения значения куки из запроса используется следующая форма:
+Do get a cookie, use:
 
 ```lua
 
@@ -260,12 +258,10 @@ nginx перед тарантулом.
 
         return self:redirect_to('/login')
     end
-
 ```
 
-Для того чтобы установить куки используется вызов того же метода, но
-в качестве первого аргумента ему необходимо передать табличку, описывающую
-устанавливаемую куку:
+To set a cookie, use `cookie()` method as well, but pass in a Lua
+table defining the cookie to be set:
 
 ```lua
 
@@ -283,52 +279,45 @@ nginx перед тарантулом.
         -- do login again and again and again
         return self:redirect_to('/login')
     end
-
-
 ```
 
-Табличка для установки кук должна содержать следующие поля:
+The table must contain the following fields:
 
 * `name`
 * `value`
-* `path` (опционально, если не установлено, берется текущее)
-* `domain` (опционально)
-* `expires` - строка даты для истечения куки, либо строка, описывающая
-относительную (текущей) дату смещения, например:
+* `path` (optional, if not set, the current request path is used)
+* `domain` (optional)
+* `expires` - cookie expire date, or expire offset, for example:
 
- * `1d`  - 1 день
- * `+1d` - то же
- * `23d` - 23 дня
- * `+1m` - 1 месяц (30 дней)
- * `+1y` - 1 год (365 дней)
-
+ * `1d`  - 1 day
+ * `+1d` - the same
+ * `23d` - 23 days
+ * `+1m` - 1 month (30 days)
+ * `+1y` - 1 year (365 days)
 
 
+#### Request methods and attributes:
 
-#### Методы и атрибуты запроса
+* `req.method` - HTTP request type (`GET`, `POST` etc)
+* `req.path` - request path
+* `req.query` - request arguments
+* `req.proto` - HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`)
+* `req.body` - request body (the entire request body is read from the 
+socket at once)
+* `req.headers` - normalized request headers. A normalized header
+is in lower case, all headers joined together into a single string.
 
-* `req.method` - метод HTTP-запроса (`GET`, `POST` итп)
-* `req.path` - путь
-* `req.query` - параметры запроса
-* `req.proto` - массив версии HTTP
-(например `{ 1, 1 }` соответствует `HTTP/1.1`)
-* `req.body` - тело запроса (в момент первого обращения производится вычитка
-всего `body` из сокета.
-* `req.headers` - таблица с нормализованными (приведенными к маленьким буквам
-и склеенными) заголовками запроса
+* `req:to_string()` - returns a string representation of the request
+* `req:request_line()` - returns request body
+* `req:query_param(name)` - returns a single GET request parameter value. 
+If name is `nil`, returns a Lua table withall arguments
+* `req:post_param(name)` - returns a single POST request parameter value.
+If `name` is `nil`, returns all parameters as a Lua table.
+* `req:param(name)` - any request parameter, either GET or POST
 
-* `req:to_string()` - преобразует весь запрос к строковой форме представления
-* `req:request_line()` - возвращает запросную часть запроса
-* `req:query_param(name)` - возвращает значение параметра из http-query. Если
-`name` не указан (или `nil`) то возвращает таблицу со всеми параметрами.
-* `req:post_param(name)` - возвращает значение параметра из тела запроса. Если
-`name` не указан то возвращает таблицу со всеми параметрами.
-* `req:param(name)` - возвращает значение параметра из тела запроса, или,
-если в теле запроса такого параметра нет, то из http-query.
+### Rendering a template
 
-### Рендеринг
-
-В шаблонах html можно использовать встроенный lua.
+Lua can be used inside a response template, for example:
 
 ```html
 <html>
@@ -343,50 +332,48 @@ nginx перед тарантулом.
         </ul>
     </body>
 </html>
-
 ```
 
-Для встраивания перехода от обычного html-контента к lua и назад используются
-следующие конструкции:
+To embed Lua into a template, use:
 
-* `<% луа-код %>` - позволяет вставить многострочный lua код. Может
-находиться в любом месте строки.
-* `% луа код` - позволяет вставить однострочный lua код. Может находиться
-в начале строки (пробелы и табуляции в начале строки игнорируются)
+* `<% lua-here %>` - insert any Lua code, including multi-line. 
+Can be used in any location in the template.
+* `% lua-here` - a single line Lua substitution. Can only be
+present in the beginning of a line (with optional preceding spaces
+and tabs, which are ignored).
 
-После символа `%` могут идти управляющие символы:
+A few control characters may follow `%`:
 
-* `=` (например `<%= value + 1 %>`) - выполняет идущий в блоке lua код
-и вставляет результат его выполнения в html. При этом производится так
-же экранирование символов html (`<`, `>`, `&`, `"`)
-* `==` (например `<%== value + 10 %>`) - выполняет lua код блока, вставляет
-результат его выполнения в html. Экранирование символов не производится.
+* `=` (e.g., `<%= value + 1 %>`) - runs the embedded Lua
+and inserts the result into HTML. HTML special characters, 
+such as `<`, `>`, `&`, `"` are escaped.
+* `==` (e.g., `<%== value + 10 %>`) - the same, but with no
+escaping.
 
-В шаблонах можно оперировать следующими переменными/функциями:
+A Lua statement inside the template has access to the following
+environment:
 
-1. переменными, определенными в lua шаблона
-1. переменными, попавшими в стеш
-1. переменными, переданными в таблице функции `render`
+1. the Lua variables defined in the template
+1. the stashed variables
+1. the variables standing for keys in the `render` table
 
+#### Helpers
 
-#### Помощники
+Helpers are special functions for use in HTML templates, available
+in all templates. They must be defined when creating an httpd object.
 
-В шаблонах html можно использовать помощников - это функции, которые
-определяются на стадии конфигурирования httpd сервера и доступны к
-использованию во всех шаблонах.
-
-Определить (или удалить) помощника можно следующим образом:
+Setting or deleting a helper:
 
 ```lua
 
-	-- установить помощника
+	-- setting a helper
 	httpd:helper('time', function(self, ...) return box.time() end)
-	-- сбросить помощника
+	-- deleting a helper
 	httpd:helper('some_name', nil)
 
 ```
 
-Далее помощника можно использовать внутри html-шаблона:
+Using a helper inside an HTML template:
 
 ```html
 <div>
@@ -394,67 +381,36 @@ nginx перед тарантулом.
 </div>
 ```
 
-Первым параметром хелперу всегда передается текущий контроллер, остальные
-параметры - те что передал пользователь.
+A helper function can receive arguments. The first argument is 
+always the current controller. The rest is whatever is
+passed to the helper from the template.
 
+### Hooks
 
-### Хуки
-
-Для http сервера можно определить несколько обработчиков, которые
-будут вызываться на разных стадиях выполнения запросов.
+It is possible to define additional functions invoked at various
+stages of request processing.
 
 #### `before_routes(httpd, request)`
 
-Вызывается перед выполнением роутинга.
+Is invoked before a request is routed to a handler. The first
+argument of the hook is the HTTP request to be handled.
+The return value of the hook is ignored.
 
-В качестве параметра получает - входящий http-запрос.
-Возвращаемое значение игнорируется.
-
-Этот хук можно использовать например для добавления заголовков в request,
-логгирования итп.
+This hook could be used to log a request, or modify request headers.
 
 ### `after_dispatch(cx, resp)`
 
-Вызывается после того как обработчик запроса выполнен.
+Is invoked after a handler for a route is executed.
 
-В качестве параметров получает тот же объект, что и обработчик роута,
-а так же табличку со сформированным http-ответом.
+The argument of the hook is the request, passed into the handler, 
+and the response produced by the handler.
 
-Данный обработчик может модифицировать сформированный ответ.
-
-Возвращаемое значение игнорируется.
-
+This hook can be used to modify the response. 
+The return value of the hook is ignored.
 
 
-Tarantool HTTP
-==============
-
-HTTP client and server for [Tarantool][].
-
-## Status
-
-This module is in early alpha stage.
-Tarantool 1.6.3-1+ required.
-
-[![Build Status](https://travis-ci.org/tarantool/http.png?branch=master)](https://travis-ci.org/tarantool/http)
-
-## Getting Started
-
-### Installation
-
-    cmake . -DCMAKE_INSTALL_PREFIX=/usr # Tarantool prefix
-    make
-    make install
-    make test
-
-Please check that you have `include/tarantool/config.h` installed.
-
-### Usage
-
-    tarantool> client = require('http.client')
-    tarantool> print(client.get("http://mail.ru/").status)
-
-See more examples in the [documentation][Documentation] and [tests][Tests].
+For additional examples, see [documentation][Documentation] and
+[tests][Tests].
 
 ## See Also
 
