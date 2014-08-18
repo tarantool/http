@@ -7,8 +7,18 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 # Find Tarantool
 set(TARANTOOL_FIND_REQUIRED ON)
-find_package(Tarantool)
-include_directories(${TARANTOOL_INCLUDEDIR})
+
+
+option(TARANTOOL_SRC_DIR "Directory with tarantool sources")
+
+if (NOT TARANTOOL_SRC_DIR)
+	find_package(Tarantool)
+	include_directories(${TARANTOOL_INCLUDEDIR})
+else()
+	include_directories(${TARANTOOL_SRC_DIR}/src)
+	include_directories(${TARANTOOL_SRC_DIR}/third_party)
+	include_directories(${TARANTOOL_SRC_DIR}/third_party/luajit/src)
+endif()
 
 # Set CFLAGS
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
@@ -17,5 +27,5 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
 add_subdirectory(http)
 
 add_custom_target(test
-    COMMAND prove ./http.test.lua
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/test/)
+	WORKING_DIRECTORY .
+	COMMAND ./test/http.test.lua)

@@ -8,9 +8,10 @@ http_lib = require('http.lib')
 http_client = require('http.client')
 http_server = require('http.server')
 json = require('json')
+yaml = require 'yaml'
 
 local test = tap.test("http")
-test:plan(6)
+test:plan(8)
 test:test("split_uri", function(test)
     test:plan(70)
     local function check(uri, rhs)
@@ -64,42 +65,40 @@ test:test("template", function(test)
     test:ok(r == false and msg:match("call local 'ab'") ~= nil, "bad template")
 end)
 
---[[
-lua dump = function(d, ...) if type(d) ~= 'table' then return "'" .. box.cjson.encode(d, ...) .. "'" end local o = {} for k, v in pairs(d) do if type(v) ~= 'function' then o[k] = v end end  return "'" .. box.cjson.encode(o) .. "'" end
----
-...
-lua hdump = function(h) h.server = nil return dump(h) end
----
-...
-lua dump(http_server.parse_request('abc'))
----
- - '{"error":"Broken request line","headers":{}}'
-...
-lua dump(http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n"))
----
- - '{"path":"\/","broken":false,"method":"GET","query":"","body":"","proto":[1,1],"headers":{"host":"s.com"}}'
-...
-lua dump(http_server.parse_request("GET / HTTP/1.0\nHost: s.com\nHost: cde.com"))
----
- - '{"path":"\/","broken":false,"query":"","method":"GET","proto":[1,0],"headers":{"host":"s.com, cde.com"}}'
-...
-lua dump(http_server.parse_request("GET / HTTP/0.9\nX-Host: s.com\r\n\r\nbody text"))
----
- - '{"path":"\/","broken":false,"method":"GET","query":"","body":"body text","proto":[0,9],"headers":{"x-host":"s.com"}}'
-...
-lua dump(http_lib.parse_response('abc'))
----
- - '{"error":"Too short response line","headers":{}}'
-...
-lua dump(http_lib.parse_response("HTTP/1.0 200 Ok\nHost: s.com\r\n\r\n"))
----
- - '{"reason":"Ok","status":200,"body":"","proto":[1,0],"headers":{"host":"s.com"}}'
-...
-lua dump(http_lib.parse_response("HTTP/1.0 200 Ok\nHost: s.com\r\n\r\ntext of body"))
----
- - '{"reason":"Ok","status":200,"body":"text of body","proto":[1,0],"headers":{"host":"s.com"}}'
-...
---]]
+test:test('parse_request', function(test)
+    test:plan(6)
+
+    test:isdeeply(http_server.parse_request('abc'),
+        { error = 'Broken request line', headers = {} }, 'broken request')
+
+
+
+    test:is(
+        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").path,
+        '/',
+        'path'
+    )
+    test:isdeeply(
+        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").proto,
+        {1,1},
+        'proto'
+    )
+    test:isdeeply(
+        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").headers,
+        {host = 's.com'},
+        'host'
+    )
+    test:isdeeply(
+        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").method,
+        'GET',
+        'method'
+    )
+    test:isdeeply(
+        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").query,
+        '',
+        'query'
+    )
+end)
 
 test:test("http request", function(test)
     test:plan(11)
@@ -119,39 +118,20 @@ test:test("http request", function(test)
     test:is(http_client.request("GET", "http://tarantool.org/").status, 200, 'alias')
 end)
 
---[[
-lua dump(http_lib.params())
----
- - '{}'
-...
-lua dump(http_lib.params(''))
----
- - '{}'
-...
-lua dump(http_lib.params('a'))
----
- - '{"a":""}'
-...
-lua dump(http_lib.params('a=b'))
----
- - '{"a":"b"}'
-...
-lua dump(http_lib.params('a=b&b=cde'))
----
- - '{"a":"b","b":"cde"}'
-...
-lua dump(http_lib.params('a=b&b=cde&a=1'))
----
- - '{"a":["b","1"],"b":"cde"}'
-...
-lua dump(http_lib.params('a=b&b=cde&a=1&a=10'))
----
- - '{"a":["b","1","10"],"b":"cde"}'
-...
---]]
+
+test:test('params', function(test)
+    test:plan(6)
+    test:isdeeply(http_lib.params(), {}, 'nil string')
+    test:isdeeply(http_lib.params(''), {}, 'empty string')
+    test:isdeeply(http_lib.params('a'), {a = ''}, 'separate literal')
+    test:isdeeply(http_lib.params('a=b'), {a = 'b'}, 'one variable')
+    test:isdeeply(http_lib.params('a=b&b=cde'), {a = 'b', b = 'cde'}, 'some')
+    test:isdeeply(http_lib.params('a=b&b=cde&a=1'),
+        {a = { 'b', '1' }, b = 'cde'}, 'array')
+end)
 
 local function cfgserv()
-    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = '.' })
+    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = 'test' })
         :route({path = '/abc/:cde/:def', name = 'test'}, function() end)
         :route({path = '/abc'}, function() end)
         :route({path = '/ctxaction'}, 'module.controller#action')
@@ -162,12 +142,6 @@ local function cfgserv()
         :route({path = '/abc-:cde-def'}, function() end)
         :route({path = '/aba*def'}, function() end)
         :route({path = '/abb*def/cde', name = 'star'}, function() end)
---[[
-lua type(httpd:route({path = '/abb*def/cde', name = 'star'}, function() end))
----
-error: './box/http/server.lua:15: Route with name ''star'' is already exists'
-...
---]]
         :helper('helper_title', function(self, a) return 'Hello, ' .. a end)
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
@@ -222,7 +196,7 @@ test:test("server url_for", function(test)
 end)
 
 test:test("server requests", function(test)
-    test:plan(37)
+    test:plan(39)
     local httpd = cfgserv()
     httpd:start()
     local r = http_client.get('http://127.0.0.1:12345/test')
@@ -299,115 +273,29 @@ test:test("server requests", function(test)
     test:is(r.host, '127.0.0.1', 'peer.host')
     test:isnumber(r.port, 'peer.port')
 
---[[
-lua type(httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'POST = ' .. tx.req.body}) end ))
----
- - table
-...
-lua type(httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'GET = ' .. tx.req.body}) end ))
----
- - table
-...
-lua res = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
----
-...
-lua res.body == 'POST = test'
----
- - true
-...
-lua res = http_client.post('http://127.0.0.1:12345/dit', 'test')
----
-...
-lua res.body == 'POST = test'
----
- - true
-...
-lua res = http_client.request('GET', 'http://127.0.0.1:12345/dit')
----
-...
-lua res.body == 'GET = '
----
- - true
-...
-lua type(httpd:route({method = 'POST', path = '/gparam' }, function(tx) tx:render({text = 'POST PARAM = ' .. dump( tx.req:post_param() )  }) end ))
----
- - table
-...
-lua type(httpd:route({path = '/gparam' }, function(tx) tx:render({text = 'PARAM = ' .. dump( tx.req:query_param() )  }) end ))
----
- - table
-...
-lua res = http_client.request('GET', 'http://127.0.0.1:12345/gparam?aaa=12343')
----
-...
-lua res.body == [ [PARAM = '{"aaa":"12343"}'] ]
----
- - true
-...
-lua res = http_client.request('POST', 'http://127.0.0.1:12345/gparam?aaa=12343', '')
----
-...
-lua res.body == [ [POST PARAM = '{}'] ]
----
- - true
-...
-lua res = http_client.request('POST', 'http://127.0.0.1:12345/gparam?aaa=12343', 'bbb=4321')
----
-...
-lua res.body == [ [POST PARAM = '{"bbb":"4321"}'] ]
----
- - true
-...
-lua type(httpd:route({path = '/bparam' }, function(tx) tx:render({text = 'PARAM = ' .. dump( tx.req:param() )  }) end ))
----
- - table
-...
-lua res = http_client.request('POST', 'http://127.0.0.1:12345/bparam?aaa=12343', 'bbb=4321')
----
-...
-lua res.body == [ [PARAM = '{"bbb":"4321","aaa":"12343"}'] ]
----
- - true
-...
-lua type(httpd:route({method = 'GET', path = '/cookie' }, function(tx) tx:cookie({name = 'name', value = 'value' }) tx:cookie({name = 'time', value = 'a ' .. tostring(tx:cookie('time')) }) tx:render({text = 'a ' .. tostring(tx:cookie('time'))  }) end ))
----
- - table
-...
-lua res = http_client.request('GET', 'http://127.0.0.1:12345/cookie')
----
-...
-lua dump(res.status)
----
- - '200'
-...
-lua dump(res.body)
----
- - '"a nil"'
-...
-lua dump(res.headers['set-cookie'])
----
- - '"name=value;path=\/cookie, time=a%20nil;path=\/cookie"'
-...
-lua res = http_client.request('GET', 'http://127.0.0.1:12345/cookie', nil, { headers = { cookie = 'name=ignore; time=123' } })
----
-...
-lua dump(res.status)
----
- - '200'
-...
-lua dump(res.body)
----
- - '"a 123"'
-...
-lua hdump(res.headers)
----
- - '{"set-cookie":"name=value;path=\/cookie, time=a%20123;path=\/cookie","content-length":"5","content-type":"text\/plain; charset=utf-8","connection":"close"}'
-...
-lua dump(res.headers['set-cookie'])
----
- - '"name=value;path=\/cookie, time=a%20123;path=\/cookie"'
-...
---]]
+    local r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'POST = ' .. tx.req.body}) end )
+    test:istable(r, ':route')
+
+
+test:test('GET/POST at one route', function(test)
+
+    test:plan(4)
+    r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'POST = ' .. tx.req.body}) end )
+
+    test:istable(r, 'add POST method')
+
+
+    r = httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'GET = ' .. tx.req.body}) end )
+    test:istable(r, 'add GET method')
+
+    r = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
+    test:is(r.body, 'POST = test', 'POST reply')
+
+    r = http_client.request('GET', 'http://127.0.0.1:12345/dit')
+    test:is(r.body, 'GET = ', 'GET reply')
+end)
+
+
     httpd:stop()
 end)
 
