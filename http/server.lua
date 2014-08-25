@@ -73,8 +73,6 @@ local function type_by_format(fmt)
     return 'application/octet-stream'
 end
 
-local server_title = "Tarantool http server"
-
 local function reason_by_code(code)
     code = tonumber(code)
     if codes[code] ~= nil then
@@ -687,7 +685,11 @@ local function process_client(self, s)
         hdrs = normalize_headers(hdrs)
 
         if hdrs.server == nil then
-            hdrs.server = server_title
+            local title = 'Tarantool http-server v1'
+            if rawget(box, 'info') ~= nil then
+                title = title .. sprintf(' (tarantool v%s)', box.info.version)
+            end
+            hdrs.server = title
         end
 
         if p.proto[1] ~= 1 then
