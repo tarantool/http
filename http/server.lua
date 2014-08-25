@@ -11,6 +11,7 @@ local codes = require('http.codes')
 local socket = require('socket')
 local fiber = require('fiber')
 local json = require('json')
+local errno = require 'errno'
 
 local function errorf(fmt, ...)
     error(string.format(fmt, ...))
@@ -192,7 +193,7 @@ local mrequest = {
                 return ''
             end
 
-            local body, status, eno, estr = req.s:recv(cl)
+            local body, status, eno, estr = req.s:read(cl)
 
             if status ~= nil then
                 printf("Can't read request body: %s %s", status, estr)
@@ -617,39 +618,27 @@ local function normalize_headers(hdrs)
     return res
 end
 
-local function process_client(self, s, remote_addr, remote_port)
-    local peer = sprintf('%s:%s', remote_addr, remote_port)
+local function process_client(self, s)
+    local peer = s:peer()
     while true do
 
-        local hdrs = {
-            s:readline(
-                self.options.max_header_size,
-                { "\n\n", "\r\n\r\n" },
-                self.options.header_timeout
-            )
+
+        local hdrs = s:read{
+            chunk = self.options.max_header_size,
+            delimiter = { "\n\n", "\r\n\r\n" }
         }
 
-        if hdrs[2] == 'limit' then
-            hlog(peer, 400, hdrs[1])
-            break
-        end
-        if hdrs[2] ~= nil then
-            printf("Error while reading headers: %s, %s (%s)",
-                hdrs[4], hdrs[2], peer)
-            break
-        end
-
-        local p = parse_request(hdrs[1])
+        local p = parse_request(hdrs)
         if rawget(p, 'error') ~= nil then
             if rawget(p, 'method') ~= nil then
                 log(peer, 400, p:request_line())
             else
-                hlog(peer, 400, hdrs[1])
+                hlog(peer, 400, hdrs)
             end
             s:send(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
             break
         end
-        rawset(p, 'peer', {host=remote_addr, port=remote_port})
+        rawset(p, 'peer', peer)
 
         -- first access at body will load body
         if p.method ~= 'GET' then
@@ -766,6 +755,11 @@ local function httpd_stop(self)
         self.is_run = false
     else
         error("server is already stopped")
+    end
+
+    if self.tcp_server ~= nil then
+        self.tcp_server:stop()
+        self.tcp_server = nil
     end
     return self
 end
@@ -1048,43 +1042,19 @@ local function httpd_start(self)
     if type(self) ~= 'table' then
         error("httpd: usage: httpd:start()")
     end
-    local s = socket.tcp()
-    if s == nil then
-        error("Can't create new tcp socket")
-    end
 
-    local res = { s:bind(self.host, self.port) }
-    if res[1] == 'error' then
-        errorf("Can't bind socket: %s", res[3])
-    end
-
-    res = { s:listen() }
-    if res[1] == 'error' then
-        errorf("Can't listen socket: %s", res[3])
+    local server = socket.tcp_server(self.host, self.port,
+        function(s) s:setsockopt('SOL_SOCKET', 'SO_REUSEADDR', 1) end,
+        function(cs) process_client(self, cs) end
+    )
+    if server == nil then
+        error(sprintf("Can't create tcp_server: %s", errno.strerror()))
     end
 
     rawset(self, 'is_run', true)
     rawset(self, 's', s)
+    rawset(self, 'tcp_server', server)
     rawset(self, 'stop', httpd_stop)
-
-    fiber.create(function()
-        printf('httpd: started at host=%s, port=%s',
-            self.host, self.port)
-        while self.is_run do
-            local cs, status, es, eport = s:accept(.1)
-            if cs == 'error' then
-                printf("Can't accept socket: %s", es)
-                break
-            elseif cs ~= 'timeout' then
-                eport = tonumber(eport)
-                fiber.create(function() process_client(self, cs, es, eport) end)
-                cs = nil
-            end
-        end
-        self.s:close()
-        rawset(self, 's', nil)
-        rawset(self, 'is_run', false)
-    end)
 
     return self
 end
