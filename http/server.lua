@@ -633,7 +633,7 @@ local function process_client(self, s)
             else
                 hlog(peer, 400, hdrs)
             end
-            s:send(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
+            s:write(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
             break
         end
         rawset(p, 'peer', peer)
@@ -730,7 +730,7 @@ local function process_client(self, s)
         end
 
 
-        s:send(sprintf(
+        s:write(sprintf(
             "HTTP/1.1 %s %s\r\n%s\r\n%s",
             code,
             reason_by_code(code),

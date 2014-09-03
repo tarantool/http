@@ -2,6 +2,8 @@
 
 local lib = require('http.lib') -- native library
 local socket = require('socket')
+local errno = require('errno')
+local log = require('log')
 
 local function errorf(fmt, ...)
     error(string.format(fmt, ...))
@@ -12,18 +14,6 @@ local function retcode(code, reason)
         status  = code,
         reason  = reason
     }
-end
-
-local function connect(host, port)
-    local s = socket.tcp()
-    if s == nil then
-        return nil, "Can't create socket"
-    end
-    local res = { s:connect(host, port) }
-    if res[1] == nil then
-        return nil, res[4]
-    end
-    return s
 end
 
 local function ucfirst(str)
@@ -69,9 +59,9 @@ local function request(method, url, body, opts)
         return retcode(599, "Wrong port number: " .. port)
     end
 
-    local s, err = connect(host, port)
+    local s = socket.tcp_connect(host, port)
     if s == nil then
-        return retcode(595, err)
+        return retcode(595, errno.strerror())
     end
 
     if body == nil then
@@ -120,36 +110,30 @@ local function request(method, url, body, opts)
     local req = string.format("%s %s%s HTTP/1.1\r\n%s\r\n%s",
         method, path, pquery, hdr, body)
 
-    local res = { s:send(req) }
-
-    if #res > 1 then
-        return retcode(595, res[4])
-    end
-    if res[1] ~= string.len(req) then
-        return retcode(595, "Can't send request")
+    if not s:write(req) then
+        return retcode(595, errno.strerror())
     end
 
-    res = { s:readline({ "\n\n", "\r\n\r\n" }) }
-
-    if res[2] ~= nil and res[2] ~= 'eof' then
-        -- TODO: text of error
+    local resp = s:read{line = { "\n\n", "\r\n\r\n"} }
+    
+    if resp == nil then
         return retcode(595, "Can't read response headers")
     end
 
-    local resp = lib.parse_response(res[1])
+    resp = lib.parse_response(resp)
 
     if resp.error ~= nil then
         return retcode(595, resp.error)
     end
 
     resp.body = ''
-    local data, res
+    local data
     if resp.headers['content-length'] ~= nil then
-        data, res = s:recv(tonumber(resp.headers['content-length']))
+        data = s:read(tonumber(resp.headers['content-length']))
     else
-        data, res = s:readline({ "\r\n\r\n" })
+        data = s:read({ "\r\n\r\n" })
     end
-    if res ~= nil then
+    if data == nil then
         -- TODO: text of error
         return retcode(595, "Can't read response body")
     end
