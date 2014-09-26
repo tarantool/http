@@ -760,7 +760,7 @@ local function httpd_stop(self)
     end
 
     if self.tcp_server ~= nil then
-        self.tcp_server:stop()
+        self.tcp_server:close()
         self.tcp_server = nil
     end
     return self
@@ -1046,15 +1046,12 @@ local function httpd_start(self)
     end
 
     local server = socket.tcp_server(self.host, self.port,
-        function(s) s:setsockopt('SOL_SOCKET', 'SO_REUSEADDR', 1) end,
-        function(cs) process_client(self, cs) end
-    )
+        function(...) process_client(self, ...) end)
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
     end
 
     rawset(self, 'is_run', true)
-    rawset(self, 's', s)
     rawset(self, 'tcp_server', server)
     rawset(self, 'stop', httpd_stop)
 
