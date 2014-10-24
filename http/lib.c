@@ -39,116 +39,6 @@
 #include "tpleval.h"
 #include "httpfast.h"
 
-static int
-lbox_http_split_url(struct lua_State *L)
-{
-	if (lua_gettop(L) < 1)
-		luaL_error(L, "box.http.split_url: wrong arguments");
-
-	const char *p;
-	const char *uri = lua_tostring(L, 1);
-	int cnt = 0;
-
-	/* scheme */
-	for (p = uri; *p; p++) {
-		if (*p == ':') {
-			if (p[1] == '/' && p[2] == '/') {
-				lua_pushlstring(L, uri, (int)(p - uri));
-				uri = p + 3;
-				cnt++;
-			}
-			goto domain;
-		}
-	}
-
-	lua_pushstring(L, "http");
-	cnt++;
-
-domain:
-	for (p = uri; *p; p++) {
-		if (*p == ':' || *p == '/' || *p == '?') {
-			lua_pushlstring(L, uri, (int)(p - uri));
-			uri = p;
-			cnt++;
-
-			if (*p == '/') {
-				lua_pushnil(L);		/* port */
-				cnt++;
-				goto path;
-			}
-
-			uri++;
-			if (*p == ':')
-				goto port;
-
-			lua_pushnil(L);
-			lua_pushstring(L, "/");
-			cnt += 2;
-			goto query;
-		}
-	}
-
-	if (*uri) {
-		lua_pushstring(L, uri);		/* host */
-		cnt++;
-	} else {
-		lua_pushnil(L);
-		cnt++;
-	}
-	lua_pushnil(L);			/* port */
-	lua_pushstring(L, "/");		/* path */
-	lua_pushnil(L);			/* query */
-	cnt += 3;
-	return cnt;
-
-port:
-	/* extract port */
-	for (p = uri; *p; p++) {
-		if (*p == '/' || *p == '?') {
-			lua_pushlstring(L, uri, (int)(p - uri));
-			uri = p;
-			cnt++;
-			if (*p == '/')
-				goto path;
-			lua_pushstring(L, "/");
-			cnt++;
-			uri++;
-			goto query;
-		}
-	}
-	if (*uri)
-		lua_pushstring(L, uri);
-	else
-		lua_pushnil(L);
-	lua_pushstring(L, "/");
-	lua_pushnil(L);
-	cnt += 3;
-	return cnt;
-
-path:
-	for (p = uri; *p; p++) {
-		if (*p == '?') {
-			lua_pushlstring(L, uri, (int)(p - uri));
-			uri = p + 1;
-			cnt++;
-			goto query;
-		}
-	}
-	lua_pushstring(L, uri);
-	lua_pushnil(L);
-	cnt += 2;
-	return cnt;
-
-query:
-	if (*uri)
-		lua_pushstring(L, uri);
-	else
-		lua_pushnil(L);
-	cnt++;
-
-	return cnt;
-}
-
 static void
 tpl_term(int type, const char *str, size_t len, void *data)
 {
@@ -642,7 +532,6 @@ LUA_API int
 luaopen_http_lib(lua_State *L)
 {
 	static const struct luaL_reg reg[] = {
-		{"split_url", lbox_http_split_url},
 		{"parse_response", lbox_http_parse_response},
 		{"template", lbox_httpd_template},
 		{"_parse_request", lbox_httpd_parse_request},

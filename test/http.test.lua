@@ -9,47 +9,41 @@ http_client = require('http.client')
 http_server = require('http.server')
 json = require('json')
 yaml = require 'yaml'
+local urilib = require('uri')
 
 local test = tap.test("http")
 test:plan(8)
 test:test("split_uri", function(test)
-    test:plan(70)
+    test:plan(65)
     local function check(uri, rhs)
-        local schema, host, service, path, qs = http_lib.split_url(uri)
-        local lhs = { schema = schema, host = host, port = port,
-            path = path, qs = qs }
-        if lhs.qs == '' then
-            lhs.qs = nil
-        end
+        local lhs = urilib.parse(uri)
         local extra = { lhs = lhs, rhs = rhs }
-        test:is(schema, rhs.schema, uri.." schema", extra)
-        test:is(host, rhs.host, uri.." host", extra)
-        test:is(service, rhs.service, uri.." service", extra)
-        test:is(path, rhs.path, uri.." path", extra)
-        test:is(qs, rhs.qs, uri.." qs", extra)
+        if lhs.query == '' then
+            lhs.query = nil
+        end
+        test:is(lhs.scheme, rhs.scheme, uri.." scheme", extra)
+        test:is(lhs.host, rhs.host, uri.." host", extra)
+        test:is(lhs.service, rhs.service, uri.." service", extra)
+        test:is(lhs.path, rhs.path, uri.." path", extra)
+        test:is(lhs.query, rhs.query, uri.." query", extra)
     end
-    check('http://abc', { schema = 'http', host = 'abc', path ='/'})
-    check('http://abc/', { schema = 'http', host = 'abc', path ='/'})
-    check('http://abc?', { schema = 'http', host = 'abc', path ='/'})
-    check('http://abc/?', { schema = 'http', host = 'abc', path ='/'})
-    check('http://abc/?', { schema = 'http', host = 'abc', path ='/'})
-    check('http://abc:123', { schema = 'http', host = 'abc', service = '123',
-        path ='/'})
-    check('http://abc:123?', { schema = 'http', host = 'abc', service = '123',
-        path ='/'})
-    check('http://abc:123?query', { schema = 'http', host = 'abc',
-        service = '123', path ='/', qs = 'query'})
-    check('http://domain.subdomain.com:service?query', { schema = 'http',
-        host = 'domain.subdomain.com', service = 'service', path ='/',
-        qs = 'query'})
-    check('google.com', { schema = 'http', host = 'google.com', path = '/'})
-    check('google.com?query', { schema = 'http', host = 'google.com',
-        path = '/', qs = 'query'})
-    check('google.com/abc?query', { schema = 'http', host = 'google.com',
-        path = '/abc', qs = 'query'})
-    check('https://google.com:443/abc?query', { schema = 'https',
-        host = 'google.com', service = '443', path = '/abc', qs = 'query'})
-    check('https://', { schema = 'https', path = '/'})
+    check('http://abc', { scheme = 'http', host = 'abc'})
+    check('http://abc/', { scheme = 'http', host = 'abc', path ='/'})
+    check('http://abc?', { scheme = 'http', host = 'abc'})
+    check('http://abc/?', { scheme = 'http', host = 'abc', path ='/'})
+    check('http://abc/?', { scheme = 'http', host = 'abc', path ='/'})
+    check('http://abc:123', { scheme = 'http', host = 'abc', service = '123' })
+    check('http://abc:123?', { scheme = 'http', host = 'abc', service = '123'})
+    check('http://abc:123?query', { scheme = 'http', host = 'abc',
+        service = '123', query = 'query'})
+    check('http://domain.subdomain.com:service?query', { scheme = 'http',
+        host = 'domain.subdomain.com', service = 'service', query = 'query'})
+    check('google.com', { host = 'google.com'})
+    check('google.com?query', { host = 'google.com', query = 'query'})
+    check('google.com/abc?query', { host = 'google.com', path = '/abc',
+        query = 'query'})
+    check('https://google.com:443/abc?query', { scheme = 'https',
+        host = 'google.com', service = '443', path = '/abc', query = 'query'})
 end)
 
 test:test("template", function(test)

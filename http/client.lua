@@ -4,6 +4,7 @@ local lib = require('http.lib') -- native library
 local socket = require('socket')
 local errno = require('errno')
 local log = require('log')
+local urilib = require('uri')
 
 local function errorf(fmt, ...)
     error(string.format(fmt, ...))
@@ -20,7 +21,7 @@ local function ucfirst(str)
     return (str:gsub("^%l", string.upper))
 end
 
-local function request(method, url, body, opts)
+local function request(method, urlstr, body, opts)
     if opts == nil then
         opts = {}
     end
@@ -42,24 +43,24 @@ local function request(method, url, body, opts)
         return retcode(599, "Unknown request method: " .. method)
     end
 
-    local scheme, host, port, path, query = lib.split_url( url )
-    if scheme ~= 'http' then
+    local url = urilib.parse(urlstr)
+    if not url then
+        return retcode(599, "Invalid url: " .. urlstr)
+    end
+
+    if url.scheme and url.scheme ~= 'http' then
         return retcode(599, "Unknown scheme: " .. scheme)
     end
 
-    if string.len(host) < 1 then
+    if string.len(url.host) < 1 then
         return retcode(595, "Can't route host")
     end
 
-    if port == nil then
-        port = 80
-    elseif string.match(port, '^%d+$') ~= nil then
-        port = tonumber(port)
-    else
-        return retcode(599, "Wrong port number: " .. port)
+    if url.service == nil then
+        url.service = 80
     end
 
-    local s = socket.tcp_connect(host, port)
+    local s = socket.tcp_connect(url.host, url.service)
     if s == nil then
         return retcode(595, errno.strerror())
     end
@@ -79,10 +80,12 @@ local function request(method, url, body, opts)
         hdrs['user-agent'] = 'Tarantool http client'
     end
 
-    if port == 80 then
-        hdrs['host'] = host
+    if url.host == 'unix/' then
+        hdrs['host'] = 'localhost'
+    elseif url.service == 80 or url.service == 'http' then
+        hdrs['host'] = url.host
     else
-        hdrs['host'] = string.format("%s:%d", host, port)
+        hdrs['host'] = string.format("%s:%d", url.host, s:peer().port)
     end
 
     hdrs['connection'] = 'close' -- 'keep-alive'
@@ -91,10 +94,8 @@ local function request(method, url, body, opts)
     end
 
     if hdrs.referer == nil then
-        hdrs.referer = url
+        hdrs.referer = urlstr
     end
-
-    hdrs.URL = url
 
     local hdr = ''
     for i, v in pairs(hdrs) do
@@ -103,12 +104,12 @@ local function request(method, url, body, opts)
 
     local pquery = ''
 
-    if query ~= nil and string.len(query) > 0 then
-        pquery = '?' .. query
+    if url.query ~= nil and string.len(url.query) > 0 then
+        pquery = '?' .. url.query
     end
 
     local req = string.format("%s %s%s HTTP/1.1\r\n%s\r\n%s",
-        method, path, pquery, hdr, body)
+        method, url.path or "/", pquery, hdr, body)
 
     if not s:write(req) then
         return retcode(595, errno.strerror())
