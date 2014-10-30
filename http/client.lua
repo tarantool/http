@@ -39,9 +39,6 @@ local function request(method, urlstr, body, opts)
     ho = nil
 
     method = string.upper(method)
-    if method ~= 'GET' and method ~= 'POST' then
-        return retcode(599, "Unknown request method: " .. method)
-    end
 
     local url = urilib.parse(urlstr)
     if not url then
