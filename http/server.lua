@@ -503,6 +503,10 @@ local function render(tx, opts)
     end
 end
 
+local function iterate(tx, gen, param, state)
+    tx.resp.body = { gen = gen, param = param, state = state }
+end
+
 local function redirect_to(tx, name, args, query)
     tx.resp.headers.location = tx:url_for(name, args, query)
     tx.resp.status = 302
@@ -531,18 +535,18 @@ local function static_file(self, request, format)
 
         if self.options.cache_static and self.cache.static[ file ] ~= nil then
             return {
-                200,
-                {
+                code = 200,
+                headers = {
                     [ 'content-type'] = type_by_format(format),
                 },
-                self.cache.static[ file ]
+                body = self.cache.static[ file ]
             }
         end
 
         local s, fh = pcall(io.input, file)
 
         if not s then
-            return { 404 }
+            return { code = 404 }
         end
 
         local body = fh:read('*a')
@@ -553,11 +557,11 @@ local function static_file(self, request, format)
         end
 
         return {
-            200,
-            {
+            code = 200,
+            headers = {
                 [ 'content-type'] = type_by_format(format),
             },
-            body
+            body = body
         }
 end
 
@@ -582,15 +586,17 @@ local function handler(self, request)
 
     local stash = extend(r.stash, { format = format })
 
+    local resp = { headers = {}, code = 200 }
 
     local tx = {
         req         = request,
-        resp        = { headers = {}, body = '', code = 200 },
+        resp        = resp,
         endpoint    = r.endpoint,
         tstash      = stash,
         render      = render,
         cookie      = cookie,
         redirect_to = redirect_to,
+        iterate     = iterate,
         httpd       = self,
         stash       = access_stash,
         url_for     = url_for_tx
@@ -598,14 +604,11 @@ local function handler(self, request)
 
     r.endpoint.sub( tx )
 
-
-    local res = { tx.resp.code, tx.resp.headers, tx.resp.body }
-
     if self.hooks.after_dispatch ~= nil then
-        self.hooks.after_dispatch(tx, res)
+        self.hooks.after_dispatch(tx, resp)
     end
 
-    return res
+    return resp
 end
 
 local function normalize_headers(hdrs)
@@ -644,31 +647,22 @@ local function process_client(self, s)
             rawset(p, 's', s)
         end
 
-        local res = { pcall(self.options.handler, self, p) }
+        local status, reason = pcall(self.options.handler, self, p)
         local code, hdrs, body
 
-        if res[1] == false then
+        if not status then
             code = 500
             hdrs = {}
             body =
                   "Unhandled error:\n"
-                .. debug.traceback(res[2]) .. "\n\n"
+                .. debug.traceback(reason) .. "\n\n"
 
                 .. "\n\nRequest:\n"
                 .. p:to_string()
-
         else
-            code = res[2][1]
-            hdrs = res[2][2]
-            body = res[2][3]
-
-            if type(body) == 'table' then
-                body = table.concat(body)
-            else
-                if body == nil then
-                    body = ''
-                end
-            end
+            code = reason.code or 200
+            hdrs = reason.headers
+            body = reason.body
 
             if hdrs == nil then
                 hdrs = {}
@@ -683,6 +677,26 @@ local function process_client(self, s)
         end
 
         hdrs = normalize_headers(hdrs)
+
+        local gen, param, state
+        if type(body) == 'string' then
+            -- Plain string
+            hdrs['content-length'] = #body
+        elseif type(body) == 'function' then
+            -- Generating function
+            gen = body
+            hdrs['transfer-encoding'] = 'chunked'
+        elseif type(body) == 'table' and body.gen then
+            -- Iterator
+            gen, param, state = body.gen, body.param, body.state
+            hdrs['transfer-encoding'] = 'chunked'
+        elseif body == nil then
+            -- Empty body
+            hdrs['content-length'] = 0
+        else
+            body = tostring(body)
+            hdrs['content-length'] = #body
+        end
 
         if hdrs.server == nil then
             local title = 'Tarantool http-server v1'
@@ -716,8 +730,6 @@ local function process_client(self, s)
             end
         end
 
-        hdrs['content-length'] = string.len(body)
-
         local hdr = ''
         for k, v in pairs(hdrs) do
             if type(v) == 'table' then
@@ -729,14 +741,25 @@ local function process_client(self, s)
             end
         end
 
-
         s:write(sprintf(
-            "HTTP/1.1 %s %s\r\n%s\r\n%s",
+            "HTTP/1.1 %s %s\r\n%s\r\n",
             code,
             reason_by_code(code),
-            hdr,
-            body
+            hdr
         ))
+
+        if type(body) == 'string' then
+            s:write(body)
+        elseif gen then
+            -- Transfer-Encoding: chunked
+            for _, part in gen, param, state do
+                part = tostring(part)
+                s:write(sprintf("%x\r\n", #part))
+                s:write(part)
+                s:write("\r\n")
+            end
+            s:write("0\r\n\r\n")
+        end
 
         if p.proto[1] ~= 1 then
             break

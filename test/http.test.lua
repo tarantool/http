@@ -190,7 +190,7 @@ test:test("server url_for", function(test)
 end)
 
 test:test("server requests", function(test)
-    test:plan(39)
+    test:plan(41)
     local httpd = cfgserv()
     httpd:start()
     local r = http_client.get('http://127.0.0.1:12345/test')
@@ -289,6 +289,15 @@ test:test('GET/POST at one route', function(test)
     test:is(r.body, 'GET = ', 'GET reply')
 end)
 
+    httpd:route({path = '/chunked'}, function(self)
+        return self:iterate(ipairs({'chunked', 'encoding', 'test'}))
+    end)
+
+    -- http client currently doesn't support chunked encoding
+    local r = http_client.get('http://127.0.0.1:12345/chunked')
+    test:is(r.status, 200, 'chunked 200')
+    test:is(r.body, '7\r\nchunked\r\n8\r\nencoding\r\n4\r\ntest\r\n0\r\n\r\n',
+        'chunked body')
 
     httpd:stop()
 end)
