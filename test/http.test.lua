@@ -62,33 +62,33 @@ end)
 test:test('parse_request', function(test)
     test:plan(6)
 
-    test:is_deeply(http_server.parse_request('abc'),
+    test:is_deeply(http_lib._parse_request('abc'),
         { error = 'Broken request line', headers = {} }, 'broken request')
 
 
 
     test:is(
-        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").path,
+        http_lib._parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").path,
         '/',
         'path'
     )
     test:is_deeply(
-        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").proto,
+        http_lib._parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").proto,
         {1,1},
         'proto'
     )
     test:is_deeply(
-        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").headers,
+        http_lib._parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").headers,
         {host = 's.com'},
         'host'
     )
     test:is_deeply(
-        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").method,
+        http_lib._parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").method,
         'GET',
         'method'
     )
     test:is_deeply(
-        http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").query,
+        http_lib._parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").query,
         '',
         'query'
     )
@@ -125,7 +125,8 @@ test:test('params', function(test)
 end)
 
 local function cfgserv()
-    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = 'test' })
+    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = 'test',
+        log_requests = false, log_errors = false })
         :route({path = '/abc/:cde/:def', name = 'test'}, function() end)
         :route({path = '/abc'}, function() end)
         :route({path = '/ctxaction'}, 'module.controller#action')
@@ -139,7 +140,7 @@ local function cfgserv()
         :helper('helper_title', function(self, a) return 'Hello, ' .. a end)
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
-            function(cx) cx:render({ title = 'title: 123' }) end)
+            function(cx) return cx:render({ title = 'title: 123' }) end)
     return httpd
 end
 
@@ -190,7 +191,7 @@ test:test("server url_for", function(test)
 end)
 
 test:test("server requests", function(test)
-    test:plan(41)
+    test:plan(44)
     local httpd = cfgserv()
     httpd:start()
     local r = http_client.get('http://127.0.0.1:12345/test')
@@ -261,25 +262,34 @@ test:test("server requests", function(test)
     test:is(r.reason, 'Internal server error', 'die reason')
 
     httpd:route({ path = '/info' }, function(cx)
-        cx:render({ json = cx.req.peer })
+        return cx:render({ json = cx.peer })
     end)
     local r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
     test:is(r.host, '127.0.0.1', 'peer.host')
     test:isnumber(r.port, 'peer.port')
 
-    local r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'POST = ' .. tx.req.body}) end )
+    local r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
+        function(tx)
+            return tx:render({text = 'POST = ' .. tx:read()})
+        end)
     test:istable(r, ':route')
 
 
 test:test('GET/POST at one route', function(test)
 
     test:plan(4)
-    r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'POST = ' .. tx.req.body}) end )
+    r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
+        function(tx)
+            return tx:render({text = 'POST = ' .. tx:read()})
+        end)
 
     test:istable(r, 'add POST method')
 
 
-    r = httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'}, function(tx) tx:render({text = 'GET = ' .. tx.req.body}) end )
+    r = httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'},
+        function(tx)
+            return tx:render({text = 'GET = ' .. tx:read()})
+        end )
     test:istable(r, 'add GET method')
 
     r = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
@@ -298,6 +308,53 @@ end)
     test:is(r.status, 200, 'chunked 200')
     test:is(r.body, '7\r\nchunked\r\n8\r\nencoding\r\n4\r\ntest\r\n0\r\n\r\n',
         'chunked body')
+
+    test:test('cookie', function(test)
+        test:plan(2)
+        httpd:route({ path = '/cookie'}, function(req)
+            local resp = req:render({text = ''})
+            resp:setcookie({ name = 'test', value = 'tost',
+                expires = '+1y', path = '/abc' })
+            resp:setcookie({ name = 'xxx', value = 'yyy' })
+            return resp
+        end)
+        local r = http_client.get('http://127.0.0.1:12345/cookie')
+        test:is(r.status, 200, 'status')
+        test:ok(r.headers['set-cookie'] ~= nil, "header")
+    end)
+
+    test:test('redirect', function(test)
+        test:plan(2)
+        httpd:route({ path = '/redirect'}, function(req)
+            return req:redirect_to('http://www.mail.ru/')
+        end)
+        local r = http_client.get('http://127.0.0.1:12345/redirect')
+        test:is(r.status, 302, 'status')
+        test:is(r.headers['location'], "http://www.mail.ru/", "header")
+    end)
+
+    test:test('post body', function(test)
+        test:plan(2)
+        httpd:route({ path = '/post', method = 'POST'}, function(req)
+           local t = {
+                #req:read("\n");
+                #req:read(10);
+                #req:read({ size = 10, delimiter = "\n"});
+                #req:read("\n");
+                #req:read();
+                #req:read();
+                #req:read();
+            }
+            return req:render({json = t})
+        end)
+        local bodyf = io.open('./test/public/lorem.txt')
+        local body = bodyf:read('*a')
+        bodyf:close()
+        local r = http_client.post('http://127.0.0.1:12345/post', body)
+        test:is(r.status, 200, 'status')
+        test:is_deeply(json.decode(r.body), { 541,10,10,458,1375,0,0 },
+            'req:read() results')
+    end)
 
     httpd:stop()
 end)

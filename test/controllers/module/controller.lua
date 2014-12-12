@@ -1,3 +1,3 @@
 return {
-    action = function(self) self:render() end
+    action = function(self) return self:render() end
 }

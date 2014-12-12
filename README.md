@@ -20,7 +20,7 @@ Then use `luarocks install http`
 
 Any kind of HTTP 1.1 query (no SSL support yet).
 
-### box.http.request(method, url, body[, opts])
+### http.client.request(method, url, body[, opts])
 
 Issue an HTTP request at the given URL (`url`).
 `method` can be either `GET` or `POST`.
@@ -45,8 +45,8 @@ Returns a Lua table with:
 
 ```lua
 
-    r = box.http.request('GET', 'http://google.com')
-    r = box.http.request('POST', 'http://google.com', {}, 'text=123')
+    r = require('http.client').request('GET', 'http://google.com')
+    r = require('http.client').request('POST', 'http://google.com', {}, 'text=123')
 
 ```
 ## HTTP server
@@ -61,15 +61,15 @@ servers can be creatd.
 
 To start a server:
 
-* create it: `httpd = box.httpd.new(...)`
+* create it: `httpd = require('http.server').new(...)`
 * configure "routing" `httpd:route(...)`
 * start it with `httpd:start()`
 * stop with `httpd:stop()`
 
-### `box.httpd.new()` - create an HTTP server
+### `server.new()` - create an HTTP server
 
 ```lua
-    httpd = box.httpd.new(host, port[, { options } ])
+    httpd = require('http.server').new(host, port[, { options } ])
 ```
 
 'host' and 'port' must  contain the interface and port to bind to.
@@ -88,42 +88,8 @@ a handler to use if the module "routing" functionality is not
 needed).
 * `charset` - the character set for server responses of 
 type `text/html`, `text/plain` and `application/json`.
-
-#### Arguments of the `handler()` callback
-
-If `handler` is given in httpd options, it gets
-involved on every HTTP request, and the built-in routing
-mechanism is unused.
-The arguments of `handler` are:
-
-* `proto` - protocol version
-* `path` - request path (like, '/index.html')
-* `query` - a string with GET or POST request arguments
-* `method` - a string with request type ("GET" or "POST")
-* `body` - request body
-
-The function is expected to return a Lua table (array) with
-these elements:
-
-1. HTTP response code
-1. a Lua table with normalized headers (pass 'nil' for default headers)
-1. response body (pass 'nil' for empty body)
-
-```lua
-
-	function my_handler(httpd, request)
-		return {
-			200,
-			{ ['content-type'] = 'text/html; charset=utf8' },
-			[[
-				<html>
-					<body>Hello, world!</body>
-				</html>
-			]]
-		}
-	end
-
-```
+* `display_errors` - return application errors and backraces to client (like PHP)
+* `log_errors` - log application errors using `log.error()`
 
 ### Using routes
 
@@ -182,7 +148,7 @@ for writing tests or defining HTTP servers with just one "route".
 The handler can also be passed as a string of form 'filename#functionname'.
 In that case, handler body is taken from a file in `{app_dir}/controllers` directory.
 
-#### Summary of the stuff in `app_dir`
+### Summary of the stuff in `app_dir`
 
 * `public` - is a path to store static content. Anything in this path
 defines a route which matches the file name, and the server serves this
@@ -194,23 +160,79 @@ suitable for large files, use nginx instad.
 * `controllers` - a path to Lua controllers lua. For example,
 controller name 'module.submodule#foo' maps to `{app_dir}/controllers/module.submodule.lua`.
 
-#### Route handlers
+### Route handlers
 
-A route handler is much simpler than a generic handler and is passed
-a single Lua table with the following keys:
+A route handler is a function which accept one argument - **Request** and
+returns one value - **Response**.
 
-* `req` - the request itself
-* `resp` - an object to prepare a response
+```lua
 
-`resp` object has the following methods:
+	function my_handler(req)
+	    -- req is a Request object
+	    local resp = req:render({text = req.method..' '..req.path })
+	    -- resp is a Response object
+	    resp.headers['x-test-header'] = 'test';
+	    resp.status = 201
+	    return resp
+	end
+```
 
-* `stash(name[, value])` - get or set a variable "stashed"
-when dispatching a route:
+#### Fields and methods of Request object
+
+* `req.method` - HTTP request type (`GET`, `POST` etc)
+* `req.path` - request path
+* `req.query` - request arguments
+* `req.proto` - HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`)
+* `req.headers` - normalized request headers. A normalized header
+is in lower case, all headers joined together into a single string.
+* `req.peer` - a Lua table with information about remote peer (like `socket:peer()`)
+* `tostring(req)` - returns a string representation of the request
+* `req:request_line()` - returns request body
+* `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - read raw request body as stream (see socket:read())
+* `req:post_param(name)` - returns a single POST request parameter value.
+If `name` is `nil`, returns all parameters as a Lua table.
+* `req:query_param(name)` - returns a single GET request parameter value.
+If name is `nil`, returns a Lua table withall arguments
+* `req:param(name)` - any request parameter, either GET or POST
+* `req:cookie(name)` - to get a cookie in the request
+* `req:stash(name[, value])` - get or set a variable "stashed"
+when dispatching a route
+* `req:url_for(name, args, query)` - returns the route exact URL
+* `req:render({})` - create **Response** object with rendered template
+* `req:redirect_to` - create **Response** object with HTTP redirect
+
+#### Fields and methods of Response object
+
+* `resp.status` - HTTP response code
+* `resp.headers` - a Lua table with normalized headers
+* `resp.body` - response body (string|table|wrapped\_iterator)
+* `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'))` - adds `Set-Cookie` headers to resp.headers
+
+#### Examples
+
+```lua
+
+	function my_handler(req)
+		return {
+			status = 200,
+			headers = { ['content-type'] = 'text/html; charset=utf8' },
+			body = [[
+				<html>
+					<body>Hello, world!</body>
+				</html>
+			]]
+		}
+	end
+
+
+```
+
+### Working with stashes
 
 ```lua
 
     function hello(self)
-        local id = self:stash('id')    -- сюда попадет часть :id
+        local id = self:stash('id')    -- here is :id value
         local user = box.space.users:select(id)
         if user == nil then
             return self:redirect_to('/users_not_found')
@@ -222,25 +244,18 @@ when dispatching a route:
     httpd:route(
         { path = '/:id/view', template = 'Hello, <%= user.name %>' }, hello)
     httpd:start()
-
 ```
 
-* `redirect_to` - to be used for HTTP redirection
-* `render({})` - to render a template
-* `cookie` - to get a cookie in the request, or pass a cookie to the
-client in the response
-* `url_for` - returns the route exact URL
-
-##### Special stash names
+#### Special stash names
 
 * `controller` - controller name
 * `action` - handler name in the controller
 * `format` - the current output format (e.g. `html`, `txt`). Is
 detected automatically based on request `path` (for example, `/abc.js` -
 sets `format` to `js`). When producing a response, `format` is used
-to set response 'Content-type:'.
+to sservet response 'Content-type:'.
 
-#### Working with cookies
+### Working with cookies
 
 Do get a cookie, use:
 
@@ -272,8 +287,8 @@ table defining the cookie to be set:
 
         local user = box.select(users, 1, login, password)
         if user ~= nil then
-            self:cookie({ name = 'uid', value = user[0], expires = '+1y' })
-            return self:reditect_to('/')
+            return self:redirect_to('/'):
+                set_cookie({ name = 'uid', value = user[0], expires = '+1y' })
         end
 
         -- do login again and again and again
@@ -294,26 +309,6 @@ The table must contain the following fields:
  * `23d` - 23 days
  * `+1m` - 1 month (30 days)
  * `+1y` - 1 year (365 days)
-
-
-#### Request methods and attributes:
-
-* `req.method` - HTTP request type (`GET`, `POST` etc)
-* `req.path` - request path
-* `req.query` - request arguments
-* `req.proto` - HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`)
-* `req.body` - request body (the entire request body is read from the 
-socket at once)
-* `req.headers` - normalized request headers. A normalized header
-is in lower case, all headers joined together into a single string.
-
-* `req:to_string()` - returns a string representation of the request
-* `req:request_line()` - returns request body
-* `req:query_param(name)` - returns a single GET request parameter value. 
-If name is `nil`, returns a Lua table withall arguments
-* `req:post_param(name)` - returns a single POST request parameter value.
-If `name` is `nil`, returns all parameters as a Lua table.
-* `req:param(name)` - any request parameter, either GET or POST
 
 ### Rendering a template
 
@@ -357,7 +352,7 @@ environment:
 1. the stashed variables
 1. the variables standing for keys in the `render` table
 
-#### Helpers
+### Template helpers
 
 Helpers are special functions for use in HTML templates, available
 in all templates. They must be defined when creating an httpd object.
@@ -390,6 +385,13 @@ passed to the helper from the template.
 It is possible to define additional functions invoked at various
 stages of request processing.
 
+#### `handler(req)`
+
+If `handler` is given in httpd options, it gets
+involved on every HTTP request, and the built-in routing
+mechanism is unused.
+The fields and methods of `handler` are same, as for route handler.
+
 #### `before_routes(httpd, request)`
 
 Is invoked before a request is routed to a handler. The first
@@ -398,7 +400,7 @@ The return value of the hook is ignored.
 
 This hook could be used to log a request, or modify request headers.
 
-### `after_dispatch(cx, resp)`
+#### `after_dispatch(cx, resp)`
 
 Is invoked after a handler for a route is executed.
 
