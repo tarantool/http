@@ -62,7 +62,7 @@ end)
 test:test('parse_request', function(test)
     test:plan(6)
 
-    test:isdeeply(http_server.parse_request('abc'),
+    test:is_deeply(http_server.parse_request('abc'),
         { error = 'Broken request line', headers = {} }, 'broken request')
 
 
@@ -72,22 +72,22 @@ test:test('parse_request', function(test)
         '/',
         'path'
     )
-    test:isdeeply(
+    test:is_deeply(
         http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").proto,
         {1,1},
         'proto'
     )
-    test:isdeeply(
+    test:is_deeply(
         http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").headers,
         {host = 's.com'},
         'host'
     )
-    test:isdeeply(
+    test:is_deeply(
         http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").method,
         'GET',
         'method'
     )
-    test:isdeeply(
+    test:is_deeply(
         http_server.parse_request("GET / HTTP/1.1\nHost: s.com\r\n\r\n").query,
         '',
         'query'
@@ -115,12 +115,12 @@ end)
 
 test:test('params', function(test)
     test:plan(6)
-    test:isdeeply(http_lib.params(), {}, 'nil string')
-    test:isdeeply(http_lib.params(''), {}, 'empty string')
-    test:isdeeply(http_lib.params('a'), {a = ''}, 'separate literal')
-    test:isdeeply(http_lib.params('a=b'), {a = 'b'}, 'one variable')
-    test:isdeeply(http_lib.params('a=b&b=cde'), {a = 'b', b = 'cde'}, 'some')
-    test:isdeeply(http_lib.params('a=b&b=cde&a=1'),
+    test:is_deeply(http_lib.params(), {}, 'nil string')
+    test:is_deeply(http_lib.params(''), {}, 'empty string')
+    test:is_deeply(http_lib.params('a'), {a = ''}, 'separate literal')
+    test:is_deeply(http_lib.params('a=b'), {a = 'b'}, 'one variable')
+    test:is_deeply(http_lib.params('a=b&b=cde'), {a = 'b', b = 'cde'}, 'some')
+    test:is_deeply(http_lib.params('a=b&b=cde&a=1'),
         {a = { 'b', '1' }, b = 'cde'}, 'array')
 end)
 
