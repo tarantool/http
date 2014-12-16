@@ -428,6 +428,18 @@ local function url_for_tx(tx, name, args, query)
     return tx.httpd:url_for(name, args, query)
 end
 
+local function request_json(req)
+    local data = req:read()
+    local s, json = pcall(json.decode, data)
+    if s then
+       return json
+    else
+       error(sprintf("Can't decode json in request '%s': %s",
+           data, json))
+       return nil
+    end
+end
+
 local function request_read(req, opts, timeout)
     local remaining = req._remaining
     if not remaining then
@@ -507,7 +519,8 @@ request_mt = {
         query_param = query_param,
         post_param  = post_param,
         param       = param,
-        read        = request_read
+        read        = request_read,
+        json        = request_json
     },
     __tostring = request_tostring;
 }
