@@ -189,6 +189,7 @@ is in lower case, all headers joined together into a single string.
 * `tostring(req)` - returns a string representation of the request
 * `req:request_line()` - returns request body
 * `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - read raw request body as stream (see socket:read())
+* `req:json()` - returns lua table from json JSON request
 * `req:post_param(name)` - returns a single POST request parameter value.
 If `name` is `nil`, returns all parameters as a Lua table.
 * `req:query_param(name)` - returns a single GET request parameter value.
