@@ -189,7 +189,7 @@ is in lower case, all headers joined together into a single string.
 * `tostring(req)` - returns a string representation of the request
 * `req:request_line()` - returns request body
 * `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - read raw request body as stream (see socket:read())
-* `req:json()` - returns lua table from json JSON request
+* `req:serial({})` - returns lua table from serialized request
 * `req:post_param(name)` - returns a single POST request parameter value.
 If `name` is `nil`, returns all parameters as a Lua table.
 * `req:query_param(name)` - returns a single GET request parameter value.
@@ -245,6 +245,32 @@ when dispatching a route
     httpd:route(
         { path = '/:id/view', template = 'Hello, <%= user.name %>' }, hello)
     httpd:start()
+```
+
+#### Working with serialization
+
+```lua
+
+    function jreq(self)
+        local json_data = self:serial({json=true})
+        return self:render(json = {answer = json_data.data})
+    end
+
+    function mreq(self)
+        local mpack_data = self:serial({msgpack=true})
+        return self:render(msgpack = {answer = mpack_data.data})
+    end
+
+    httpd = box.httpd.new('127.0.0.1', 8080)
+    httpd:route(
+        { path = '/json }, jreq)
+    httpd:route(
+        { path = '/mpack }, mreq)
+    httpd:start()
+```
+
+```sh
+curl -H "Content-Type: application/json" -d '{"data":"Hello JSON"}' http://127.0.0.1:8080/json
 ```
 
 #### Special stash names

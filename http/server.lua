@@ -12,6 +12,7 @@ local log = require('log')
 local socket = require('socket')
 local fiber = require('fiber')
 local json = require('json')
+local msgpack = require('msgpack')
 local errno = require 'errno'
 
 local function errorf(fmt, ...)
@@ -352,6 +353,12 @@ local function render(tx, opts)
             return resp
         end
 
+        if opts.msgpack ~= nil then
+            resp.headers['content-type'] = 'application/x-msgpack'
+            resp.body = msgpack.encode(opts.msgpack)
+            return resp
+        end
+
         if opts.data ~= nil then
             resp.body = tostring(data)
             return resp
@@ -428,15 +435,34 @@ local function url_for_tx(tx, name, args, query)
     return tx.httpd:url_for(name, args, query)
 end
 
-local function request_json(req)
+local function serial(req, opts)
+    if req == nil then
+        error("Usage: self:serial({ ... })")
+    end
+
+    local slib = nil
     local data = req:read()
-    local s, json = pcall(json.decode, data)
-    if s then
-       return json
+    if data == nil then
+        error("Can't decode request is empty")
+        return nil
+    end
+
+    if opts.json == true then
+        slib = json
+    elseif opts.msgpack == true then
+        slib = msgpack
     else
-       error(sprintf("Can't decode json in request '%s': %s",
-           data, json))
-       return nil
+        error("Unsupported serialization format")
+        return nil
+    end
+
+    local s, decoded = pcall(slib.decode, data)
+    if s then
+        return decoded
+    else
+        error(sprintf("Can't decode object in request '%s': %s",
+             data, decoded))
+        return nil
     end
 end
 
@@ -520,7 +546,7 @@ request_mt = {
         post_param  = post_param,
         param       = param,
         read        = request_read,
-        json        = request_json
+        serial      = serial
     },
     __tostring = request_tostring;
 }
