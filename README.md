@@ -263,9 +263,9 @@ when dispatching a route
 
     httpd = box.httpd.new('127.0.0.1', 8080)
     httpd:route(
-        { path = '/json }, jreq)
+        { path = '/json' }, jreq)
     httpd:route(
-        { path = '/mpack }, mreq)
+        { path = '/mpack' }, mreq)
     httpd:start()
 ```
 
