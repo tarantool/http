@@ -38,6 +38,11 @@ local function request(method, urlstr, body, opts)
     hdrs = ho
     ho = nil
 
+    local ua = opts.ua
+    if opts.ua == nil then
+        ua = 'Tarantool http client'
+    end
+
     method = string.upper(method)
 
     local url = urilib.parse(urlstr)
@@ -74,7 +79,7 @@ local function request(method, urlstr, body, opts)
     end
 
     if hdrs['user-agent'] == nil then
-        hdrs['user-agent'] = 'Tarantool http client'
+        hdrs['user-agent'] = ua
     end
 
     if url.host == 'unix/' then
@@ -144,7 +149,7 @@ end
 
 -- GET
 local function get(url, opts)
-    return request('GET', url, '', opts)
+    return request('GET', url, body, opts)
 end
 
 -- POST

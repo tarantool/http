@@ -690,9 +690,14 @@ local function process_client(self, s, peer)
         end
 
         if hdrs.server == nil then
-            local title = 'Tarantool http-server v1'
-            if rawget(box, 'info') ~= nil then
-                title = title .. sprintf(' (tarantool v%s)', box.info.version)
+            local title = 'Tarantool'
+            if self.options.banner ~= false then
+                title = self.options.banner
+            elseif self.options.server_tokens == true then
+                title = title .. ' http-server v1'
+                if rawget(box, 'info') ~= nil then
+                    title = title .. sprintf(' (tarantool v%s)', box.info.version)
+                end
             end
             hdrs.server = title
         end
@@ -1091,6 +1096,8 @@ local exports = {
             log_requests        = true,
             log_errors          = true,
             display_errors      = true,
+            server_tokens       = true,
+            banner              = false,
         }
 
         local self = {
