@@ -112,8 +112,7 @@ local function request(method, urlstr, body, opts)
         return retcode(595, errno.strerror())
     end
 
-    local resp = s:read{line = { "\n\n", "\r\n\r\n"} }
-    
+    local resp = s:read{line = { "\r\n\r\n"} }
     if resp == nil then
         return retcode(595, "Can't read response headers")
     end
@@ -124,21 +123,47 @@ local function request(method, urlstr, body, opts)
         return retcode(595, resp.error)
     end
 
-    resp.body = ''
-    local data
-    if resp.headers['content-length'] ~= nil then
-        data = s:read(tonumber(resp.headers['content-length']))
-    else
-        data = s:read({ "\r\n\r\n" })
+    if resp.headers['transfer-encoding'] == 'chunked' then
+        local body = {}
+        while true do
+            local data = s:read("\r\n")
+            if not data then
+                break
+            end
+            local len = tonumber(data, 16)
+            if not len then
+                break
+            end
+            if len == 0 then
+                -- no more chunks
+                if s:read(2) ~= "\r\n" then
+                    break
+                end
+                resp.body = table.concat(body)
+                break
+            end
+            local chunk = s:read(len)
+            if not chunk or s:read(2) ~= "\r\n" then
+                break
+            end
+            table.insert(body, chunk)
+        end
+    elseif resp.headers['content-length'] ~= nil then
+        local len = tonumber(resp.headers['content-length'])
+        if len then
+            resp.body = s:read(len)
+        end
+    elseif resp.status == 204 then
+        -- 204: No Content
+        resp.body = ''
     end
-    if data == nil then
+
+    s:close()
+    if resp.body == nil then
         -- TODO: text of error
         return retcode(595, "Can't read response body")
     end
 
-    resp.body = data
-
-    s:close()
     return resp
 end
 
