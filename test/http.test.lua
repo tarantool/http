@@ -191,9 +191,25 @@ test:test("server url_for", function(test)
 end)
 
 test:test("server requests", function(test)
-    test:plan(44)
+    test:plan(49)
     local httpd = cfgserv()
     httpd:start()
+
+    local r = http_client.get('http://127.0.0.1:12345/../')
+    test:is(r.status, 400, 'invalid path')
+
+    local r = http_client.get('http://127.0.0.1:12345/./')
+    test:is(r.status, 400, 'invalid path')
+
+    local r = http_client.get('http://127.0.0.1:12345/%2e%2f')
+    test:is(r.status, 400, 'invalid path')
+
+    local r = http_client.get('http://127.0.0.1:12345/%2e/')
+    test:is(r.status, 400, 'invalid path')
+
+    local r = http_client.get('http://127.0.0.1:12345/.%2f')
+    test:is(r.status, 400, 'invalid path')
+
     local r = http_client.get('http://127.0.0.1:12345/test')
     test:is(r.status, 200, 'testserv 200')
     test:is(r.proto[1], 1, 'testserv http 1.1')

@@ -571,6 +571,19 @@ local function normalize_headers(hdrs)
     return res
 end
 
+local function parse_request(req)
+    local p = lib._parse_request(req)
+    if p.error then
+        return p
+    end
+    p.path = uri_unescape(p.path)
+    if p.path:sub(1, 1) ~= "/" or p.path:find("./", nil, true) ~= nil then
+        p.error = "invalid uri"
+        return p
+    end
+    return p
+end
+
 local function process_client(self, s, peer)
     while true do
         local hdrs = s:read{
@@ -586,7 +599,7 @@ local function process_client(self, s, peer)
         end
 
         log.debug("request:\n%s", hdrs)
-        local p = lib._parse_request(hdrs)
+        local p = parse_request(hdrs)
         if p.error ~= nil then
             log.error('failed to parse request: %s', p.error)
             s:write(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
