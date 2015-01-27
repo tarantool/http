@@ -677,11 +677,7 @@ local function process_client(self, s, peer)
         end
 
         if hdrs.server == nil then
-            local title = 'Tarantool http-server v1'
-            if rawget(box, 'info') ~= nil then
-                title = title .. sprintf(' (tarantool v%s)', box.info.version)
-            end
-            hdrs.server = title
+            hdrs.server = sprintf('Tarantool http (tarantool v%s)', _TARANTOOL)
         end
 
         if p.proto[1] ~= 1 then
