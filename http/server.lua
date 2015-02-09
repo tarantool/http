@@ -1041,8 +1041,8 @@ local function httpd_start(self)
         error("httpd: usage: httpd:start()")
     end
 
-    local server = socket.tcp_server(self.host, self.port,
-        function(...) process_client(self, ...) end, { name = 'http'})
+    local server = socket.tcp_server(self.host, self.port, { name = 'http',
+        handler = function(...) process_client(self, ...) end })
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
     end
