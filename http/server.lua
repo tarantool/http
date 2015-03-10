@@ -743,7 +743,6 @@ local function process_client(self, s, peer)
             break
         end
     end
-    s:close()
 end
 
 local function httpd_stop(self)
