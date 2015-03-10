@@ -763,10 +763,6 @@ local function httpd_stop(self)
 end
 
 local function match_route(self, method, route)
-
-    -- format
-    route = string.gsub(route, '([^/])[.][^.]+$', '%1')
-    
     -- route must have '/' at the begin and end
     if string.match(route, '.$') ~= '/' then
         route = route .. '/'

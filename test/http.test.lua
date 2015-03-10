@@ -137,6 +137,7 @@ local function cfgserv()
         :route({path = '/abc-:cde-def'}, function() end)
         :route({path = '/aba*def'}, function() end)
         :route({path = '/abb*def/cde', name = 'star'}, function() end)
+        :route({path = '/banners/:token'})
         :helper('helper_title', function(self, a) return 'Hello, ' .. a end)
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
@@ -145,7 +146,7 @@ local function cfgserv()
 end
 
 test:test("server url match", function(test)
-    test:plan(17)
+    test:plan(18)
     local httpd = cfgserv()
     test:istable(httpd, "httpd object")
     test:isnil(httpd:match('GET', '/'))
@@ -175,6 +176,8 @@ test:test("server url match", function(test)
         "/abb*def/cde", '/abb-123-dea/1/2/3/cde')
     test:is(httpd:match('GET', '/abb-123-dea/1/2/3/cde').stash.def,
         "-123-dea/1/2/3", '/abb-123-dea/1/2/3/cde')
+    test:is(httpd:match('GET', '/banners/1wulc.z8kiy.6p5e3').stash.token,
+        '1wulc.z8kiy.6p5e3', "stash with dots")
 end)
 
 test:test("server url_for", function(test)
@@ -191,7 +194,7 @@ test:test("server url_for", function(test)
 end)
 
 test:test("server requests", function(test)
-    test:plan(50)
+    test:plan(47)
     local httpd = cfgserv()
     httpd:start()
 
@@ -211,54 +214,47 @@ test:test("server requests", function(test)
     test:is(r.status, 400, 'invalid path')
 
     local r = http_client.get('http://127.0.0.1:12345/test')
-    test:is(r.status, 200, 'testserv 200')
-    test:is(r.proto[1], 1, 'testserv http 1.1')
-    test:is(r.proto[2], 1, 'testserv http 1.1')
-    test:is(r.reason, 'Ok', 'testserv reason')
-    test:is(string.match(r.body, 'title: 123'), 'title: 123', 'testserv body')
+    test:is(r.status, 200, '/test code')
+    test:is(r.proto[1], 1, '/test http 1.1')
+    test:is(r.proto[2], 1, '/test http 1.1')
+    test:is(r.reason, 'Ok', '/test reason')
+    test:is(string.match(r.body, 'title: 123'), 'title: 123', '/test body')
 
-    local r = http_client.get('http://127.0.0.1:12345/test1')
-    test:is(r.status, 404, 'testserv 404')
-    test:is(r.reason, 'Not found', 'testserv reason')
+    local r = http_client.get('http://127.0.0.1:12345/test404')
+    test:is(r.status, 404, '/test404 code')
+    test:is(r.reason, 'Not found', '/test404 reason')
 
     local r = http_client.get('http://127.0.0.1:12345/absent')
-    test:is(r.status, 500, 'testserv 500')
-    test:is(r.reason, 'Internal server error', 'testserv reason')
-    test:is(string.match(r.body, 'load module'), 'load module', 'testserv body')
+    test:is(r.status, 500, '/absent code')
+    test:is(r.reason, 'Internal server error', '/absent reason')
+    test:is(string.match(r.body, 'load module'), 'load module', '/absent body')
 
     local r = http_client.get('http://127.0.0.1:12345/ctxaction')
-    test:is(r.status, 200, 'testserv 200')
-    test:is(r.reason, 'Ok', 'testserv reason')
+    test:is(r.status, 200, '/ctxaction code')
+    test:is(r.reason, 'Ok', '/ctxaction reason')
     test:is(string.match(r.body, 'Hello, Tarantool'), 'Hello, Tarantool',
-        'testserv body')
+        '/ctxaction body')
     test:is(string.match(r.body, 'action: action'), 'action: action',
-        'testserv body action')
+        '/ctxaction body action')
     test:is(string.match(r.body, 'controller: module[.]controller'),
-        'controller: module.controller', 'testserv body controller')
+        'controller: module.controller', '/ctxaction body controller')
 
-    local r = http_client.get('http://127.0.0.1:12345/ctxaction.js')
-    test:is(r.status, 200, 'testserv 200')
-    test:is(r.reason, 'Ok', 'testserv reason')
-    test:is(string.match(r.body, 'json template js'), 'json template js',
-        'testserv body')
-
-    local r = http_client.get('http://127.0.0.1:12345/ctxaction.jsonaaa')
-    test:is(r.status, 500, 'testserv 500') -- WTF?
-    test:is(r.reason, 'Internal server error', 'testserv reason')
-    test:is(string.match(r.body, 'No such file'), 'No such file',
-        'testserv body')
+    local r = http_client.get('http://127.0.0.1:12345/ctxaction.invalid')
+    test:is(r.status, 404, '/ctxaction.invalid code') -- WTF?
+    test:is(r.reason, 'Not found', '/ctxaction.invalid reason')
+    test:is(r.body, '', '/ctxaction.invalid body')
 
     local r = http_client.get('http://127.0.0.1:12345/hello.html')
-    test:is(r.status, 200, 'testserv 200')
-    test:is(r.reason, 'Ok', 'testserv reason')
+    test:is(r.status, 200, '/hello.html code')
+    test:is(r.reason, 'Ok', '/hello.html reason')
     test:is(string.match(r.body, 'static html'), 'static html',
-        'testserv body')
+        '/hello.html body')
 
     local r = http_client.get('http://127.0.0.1:12345/absentaction')
-    test:is(r.status, 500, 'testserv 500')
-    test:is(r.reason, 'Internal server error', 'testserv reason')
+    test:is(r.status, 500, '/absentaction 500')
+    test:is(r.reason, 'Internal server error', '/absentaction reason')
     test:is(string.match(r.body, 'contain function'), 'contain function',
-        'testserv body')
+        '/absentaction body')
 
     local r = http_client.get('http://127.0.0.1:12345/helper')
     test:is(r.status, 200, 'helper 200')
