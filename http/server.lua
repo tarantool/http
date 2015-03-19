@@ -704,35 +704,39 @@ local function process_client(self, s, peer)
             end
         end
 
-        local hdr = ''
+        local response = {
+            "HTTP/1.1 ";
+            status;
+            " ";
+            reason_by_code(status);
+            "\r\n";
+        };
         for k, v in pairs(hdrs) do
             if type(v) == 'table' then
                 for i, sv in pairs(v) do
-                    hdr = hdr .. sprintf("%s: %s\r\n", ucfirst(k), sv)
+                    table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), sv))
                 end
             else
-                hdr = hdr .. sprintf("%s: %s\r\n", ucfirst(k), v)
+                table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), v))
             end
         end
-
-        s:write(sprintf(
-            "HTTP/1.1 %s %s\r\n%s\r\n",
-            status,
-            reason_by_code(status),
-            hdr
-        ))
+        table.insert(response, "\r\n")
 
         if type(body) == 'string' then
-            s:write(body)
+            table.insert(response, body)
+            s:write(table.concat(response))
+            response = nil
         elseif gen then
+            s:write(table.concat(response))
+            response = nil
             -- Transfer-Encoding: chunked
             for _, part in gen, param, state do
                 part = tostring(part)
-                s:write(sprintf("%x\r\n", #part))
-                s:write(part)
-                s:write("\r\n")
+                s:write(sprintf("%x\r\n%s\r\n", #part, part))
             end
             s:write("0\r\n\r\n")
+        else
+            s:write(table.concat(response))
         end
 
         if p.proto[1] ~= 1 then
