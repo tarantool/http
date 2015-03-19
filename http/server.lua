@@ -724,19 +724,31 @@ local function process_client(self, s, peer)
 
         if type(body) == 'string' then
             table.insert(response, body)
-            s:write(table.concat(response))
-            response = nil
+            response = table.concat(response)
+            if not s:write(response) then
+                break
+            end
         elseif gen then
-            s:write(table.concat(response))
+            response = table.concat(response)
+            if not s:write(response) then
+                break
+            end
             response = nil
             -- Transfer-Encoding: chunked
             for _, part in gen, param, state do
                 part = tostring(part)
-                s:write(sprintf("%x\r\n%s\r\n", #part, part))
+                if not s:write(sprintf("%x\r\n%s\r\n", #part, part)) then
+                    break
+                end
             end
-            s:write("0\r\n\r\n")
+            if not s:write("0\r\n\r\n") then
+                break
+            end
         else
-            s:write(table.concat(response))
+            response = table.concat(response)
+            if not s:write(response) then
+                break
+            end
         end
 
         if p.proto[1] ~= 1 then
