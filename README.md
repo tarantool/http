@@ -231,7 +231,7 @@ when dispatching a route
 ### Working with stashes
 
 ```lua
-
+    http = require('http.server')
     function hello(self)
         local id = self:stash('id')    -- here is :id value
         local user = box.space.users:select(id)
@@ -241,7 +241,7 @@ when dispatching a route
         return self:render({ user = user  })
     end
 
-    httpd = box.httpd.new('127.0.0.1', 8080)
+    httpd = http.new('127.0.0.1', 8080)
     httpd:route(
         { path = '/:id/view', template = 'Hello, <%= user.name %>' }, hello)
     httpd:start()

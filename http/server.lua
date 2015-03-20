@@ -326,6 +326,18 @@ local function render(tx, opts)
     local resp = setmetatable({ headers = {} }, response_mt)
     local vars = {}
     if opts ~= nil then
+        for name, data in pairs(opts) do
+            if tx.httpd.plugins.render[name] then
+                local plugin = tx.httpd.plugins.render[name](tx, opts)
+                if plugin.headers then
+                    for h, v in pairs(plugin.headers) do
+                        resp.headers[h] = v
+                    end
+                end
+                resp.body = plugin.body
+                return resp
+            end
+        end
         if opts.text ~= nil then
             if tx.httpd.options.charset ~= nil then
                 resp.headers['content-type'] =
@@ -353,7 +365,7 @@ local function render(tx, opts)
         end
 
         if opts.data ~= nil then
-            resp.body = tostring(data)
+            resp.body = tostring(opts.data)
             return resp
         end
 
@@ -927,6 +939,23 @@ local function ctx_action(tx)
     return mod[action](tx)
 end
 
+local function add_plugin(self, sub)
+    if type(sub) ~= 'function' then
+        errorf("wrong argument: expected function, but received %s",
+            type(sub))
+    end
+    local plugin = sub()
+    for s, f in pairs(plugin) do
+        if not self.plugins[s] then
+            errorf("wrong plugin section %s", s)
+        else
+            self.plugins[s][f.name] = f.ext
+        end
+    end
+
+    return self
+end
+
 local function add_route(self, opts, sub)
     if type(opts) ~= 'table' or type(self) ~= 'table' then
         error("Usage: httpd:route({ ... }, function(cx) ... end)")
@@ -1096,6 +1125,9 @@ local exports = {
             options = extend(default, options, true),
 
             routes  = {  },
+            plugins = {
+                render = {  },
+            },
             iroutes = {  },
             helpers = {
                 url_for = url_for_helper,
@@ -1104,6 +1136,7 @@ local exports = {
 
             -- methods
             route   = add_route,
+            plugin  = add_plugin,
             match   = match_route,
             helper  = set_helper,
             hook    = set_hook,
