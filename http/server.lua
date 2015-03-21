@@ -944,16 +944,20 @@ local function ctx_action(tx)
     return mod[action](tx)
 end
 
-local function add_plugin(self, sub)
+local function add_plugin(self, opts, sub)
+    if type(opts) ~= 'table' then
+        errorf("wrong plugin options: expected table, but received %s",
+            type(opts))
+    end
     if type(sub) ~= 'function' then
         errorf("wrong argument: expected function, but received %s",
             type(sub))
     end
-    local plugin = sub()
+    local plugin = sub(opts)
     for s, f in pairs(plugin) do
         if (s == 'server') then
             self[f.name] = f.ext
-        elseif not self.plugins[s] and then
+        elseif not self.plugins[s] then
             errorf("wrong plugin section %s", s)
         else
             self.plugins[s][f.name] = f.ext
