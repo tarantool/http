@@ -621,6 +621,11 @@ local function process_client(self, s, peer)
         p.peer = peer
         setmetatable(p, request_mt)
 
+        -- If plugin have same name of request, it will override
+        for n, f in pairs(self.plugins.request) do
+            rawset(getmetatable(p).__index, n, f)
+        end
+
         local logreq = self.options.log_requests and log.info or log.debug
         logreq("%s %s%s", p.method, p.path,
             p.query ~= "" and "?"..p.query or "")
@@ -1126,7 +1131,8 @@ local exports = {
 
             routes  = {  },
             plugins = {
-                render = {  },
+                render  = {  },
+                request = {  },
             },
             iroutes = {  },
             helpers = {
