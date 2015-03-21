@@ -951,7 +951,9 @@ local function add_plugin(self, sub)
     end
     local plugin = sub()
     for s, f in pairs(plugin) do
-        if not self.plugins[s] then
+        if (s == 'server') then
+            self[f.name] = f.ext
+        elseif not self.plugins[s] and then
             errorf("wrong plugin section %s", s)
         else
             self.plugins[s][f.name] = f.ext
