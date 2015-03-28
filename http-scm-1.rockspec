@@ -21,6 +21,7 @@ build = {
         ['http.server'] = 'http/server.lua',
         ['http.mime_types'] = 'http/mime_types.lua',
         ['http.codes'] = 'http/codes.lua',
+        ['http.plugins.msgpack'] = 'plugins/msgpack.lua',
     }
 }
 
