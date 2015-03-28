@@ -381,6 +381,73 @@ A helper function can receive arguments. The first argument is
 always the current controller. The rest is whatever is
 passed to the helper from the template.
 
+### Plugins
+
+`:plugin(args, plugin)` - args have to be a lua table which will passed in function plugin.
+Plagin has to return lua table with plagin callback for some actions: render, request, server.
+
+`render` - must return lua table with headers and body.
+`request` - retun something data which called on request.
+`server` - must return self object.
+
+Example plugin:
+```lua
+box.cfg{}
+httpd = require('http.server')
+log = require('log')
+
+local function plugin_exmp(settings)
+    log.info("init example plugin with option: %s", settings.option)
+    local function my_rendr(self, data)
+        local d = data['example']
+        local body = nil
+        if d['user'] and type(d['user']) == 'string' then
+             body = "User id: " .. d['user']
+        end
+        return {
+            headers = {
+                ['example-plugin_00'] = 'My example header',
+                ['example-plugin_01'] = 'Example plugin',
+            },
+            body = body
+        }
+    end
+    local function my_req(self)
+        return "Hello request from example plugin"
+    end
+    local function my_server(self)
+        log.info("called server method :q()")
+        return self
+    end
+    return {
+        render = {
+            name = 'example',
+            ext  = my_rendr,
+        },
+        request = {
+            name = 'example',
+            ext  = my_req,
+        },
+        server = {
+            name = 'q',
+            ext  = my_server,
+        },
+    }
+end
+
+function hello(self)
+    log.info("called self:example() %s", self:example())
+    return self:render({example={user = '12345'}})
+end
+
+local plugin_settings = {option = 12345}
+httpd = httpd.new('127.0.0.1', 8080)
+    :plugin(plugin_settings, plugin_exmp)
+    :route({ path = '/'}, hello)
+    :q()
+    :start()
+```
+
 ### Hooks
 
 It is possible to define additional functions invoked at various
