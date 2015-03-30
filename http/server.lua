@@ -11,7 +11,6 @@ local codes = require('http.codes')
 local log = require('log')
 local socket = require('socket')
 local fiber = require('fiber')
-local json = require('json')
 local errno = require 'errno'
 
 local function errorf(fmt, ...)
@@ -339,7 +338,7 @@ local function render(tx, opts)
             end
         end
         if opts.text ~= nil then
-            if tx.httpd.options.charset ~= nil then
+            if tx.httpd.options.charset ~= false then
                 resp.headers['content-type'] =
                     sprintf("text/plain; charset=%s",
                         tx.httpd.options.charset
@@ -348,19 +347,6 @@ local function render(tx, opts)
                 resp.headers['content-type'] = 'text/plain'
             end
             resp.body = tostring(opts.text)
-            return resp
-        end
-
-        if opts.json ~= nil then
-            if tx.httpd.options.charset ~= nil then
-                resp.headers['content-type'] =
-                    sprintf('application/json; charset=%s',
-                        tx.httpd.options.charset
-                    )
-            else
-                resp.headers['content-type'] = 'application/json'
-            end
-            resp.body = json.encode(opts.json)
             return resp
         end
 
@@ -402,7 +388,7 @@ local function render(tx, opts)
     resp.body = lib.template(tpl, vars)
     resp.headers['content-type'] = type_by_format(format)
 
-    if tx.httpd.options.charset ~= nil then
+    if tx.httpd.options.charset ~= false then
         if format == 'html' or format == 'js' or format == 'json' then
             resp.headers['content-type'] = resp.headers['content-type']
                 .. '; charset=' .. tx.httpd.options.charset
