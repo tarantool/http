@@ -23,6 +23,7 @@ build = {
         ['http.codes'] = 'http/codes.lua',
         ['http.plugins.msgpack'] = 'plugins/msgpack.lua',
         ['http.plugins.json'] = 'plugins/json.lua',
+        ['http.plugins.jsonrpc'] = 'plugins/jsonrpc.lua',
     }
 }
 
