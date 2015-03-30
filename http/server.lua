@@ -946,7 +946,7 @@ local function add_plugin(self, opts, sub)
         errorf("wrong argument: expected function, but received %s",
             type(sub))
     end
-    local plugin = sub(opts)
+    local plugin = sub(self, opts)
     for s, f in pairs(plugin) do
         if (s == 'server') then
             self[f.name] = f.ext

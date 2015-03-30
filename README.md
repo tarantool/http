@@ -396,7 +396,7 @@ box.cfg{}
 httpd = require('http.server')
 log = require('log')
 
-local function plugin_exmp(settings)
+local function plugin_exmp(self, settings)
     log.info("init example plugin with option: %s", settings.option)
     local function my_rendr(self, data)
         local d = data['example']

@@ -6,10 +6,10 @@ local function json_decode(self)
         return nil
     end
 
-    local s, mp = pcall(json.decode, data)
+    local s, j = pcall(json.decode, data)
 
-    if s and data ~= nil then
-        return mp
+    if s and j ~= nil then
+        return j
     end
     return nil
 end

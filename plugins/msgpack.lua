@@ -18,7 +18,7 @@ local function mp_decode(self)
 
     local s, mp = pcall(msgpack.decode, data)
 
-    if s and data ~= nil then
+    if s and mp ~= nil then
         return mp
     end
     return nil
