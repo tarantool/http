@@ -67,7 +67,7 @@ local function rpc_decode(self)
 end
 
 local function call_method(self, rpc)
-    local command = methods[rpc.method]
+    local command = methods[self.path][rpc.method]
     local resp    = {}
     if type(command) ~= 'function' then
         resp.error = codes.method
@@ -95,14 +95,13 @@ local function rpc_function(self)
     return call_method(self, rpc)
 end
 
-local function rpc_server(self, name, sub)
-    methods[name] = sub
+local function rpc_server(self, opts, callbacks)
+    self:route({path = opts.path}, rpc_function)
+    methods[opts.path] = callbacks
     return self
 end
 
 local function plugin(self, opts)
-    self:route({path = opts.path}, rpc_function)
-
     return {
         render = {
             name = 'jsonrpc',
