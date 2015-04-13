@@ -25,6 +25,9 @@ local function rpc_encode(self, opts)
     if data.error then
         data.id = json.NULL
     end
+    if not data.result then
+        data.result = false
+    end
     data.jsonrpc = "2.0"
     return {
         headers = {
