@@ -22,11 +22,8 @@ local methods = {}
 
 local function rpc_encode(self, opts)
     local data = opts['jsonrpc']
-    if data.error then
+    if data.error or data.id == nil then
         data.id = json.NULL
-    end
-    if not data.result then
-        data.result = false
     end
     data.jsonrpc = "2.0"
     return {
@@ -78,8 +75,14 @@ local function call_method(self, rpc)
     end
     local result = command(self, codes, rpc.params)
 
+    -- Can not return false result, because LUA hide table keys if
+    -- key equal false. We always return -32603 error if method
+    -- returned false.
     if not result.result or result.error then
         resp.error = result.error
+        if not resp.error then
+            resp.error = codes.error
+        end
         return self:render{jsonrpc=resp}
     end
 
