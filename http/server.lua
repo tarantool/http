@@ -541,6 +541,13 @@ local function handler(self, request)
     request.httpd    = self
     request.tstash   = stash
 
+    local on_header = nil
+    for h, v in pairs(request.headers) do
+        on_header = self.plugins.header[h]
+        if on_header then
+            on_header(self, v)
+        end
+    end
     local resp = r.endpoint.sub(request)
     if self.hooks.after_dispatch ~= nil then
         self.hooks.after_dispatch(request, resp)
@@ -939,6 +946,9 @@ local function add_plugin(self, opts, sub)
         elseif not self.plugins[s] then
             errorf("wrong plugin section %s", s)
         else
+            if s == 'header' then
+                f.name = string.lower(f.name)
+            end
             self.plugins[s][f.name] = f.ext
         end
     end
@@ -1120,6 +1130,7 @@ local exports = {
             plugins = {
                 render  = {  },
                 request = {  },
+                header  = {  },
             },
             iroutes = {  },
             helpers = {
