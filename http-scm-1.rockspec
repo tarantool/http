@@ -16,14 +16,15 @@ build = {
     type = 'builtin',
 
     modules = {
-        ['http.lib'] = 'http/lib.c',
         ['http.client'] = 'http/client.lua',
-        ['http.server'] = 'http/server.lua',
-        ['http.mime_types'] = 'http/mime_types.lua',
         ['http.codes'] = 'http/codes.lua',
-        ['http.plugins.msgpack'] = 'plugins/msgpack.lua',
+        ['http.lib'] = 'http/lib.c',
+        ['http.mime_types'] = 'http/mime_types.lua',
         ['http.plugins.json'] = 'plugins/json.lua',
-        ['http.plugins.jsonrpc'] = 'plugins/jsonrpc.lua',
+        ['http.plugins.jsonrpc.client'] = 'plugins/jsonrpc/client.lua',
+        ['http.plugins.jsonrpc.server'] = 'plugins/jsonrpc/server.lua',
+        ['http.plugins.msgpack'] = 'plugins/msgpack.lua',
+        ['http.server'] = 'http/server.lua',
     }
 }
 
