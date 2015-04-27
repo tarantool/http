@@ -4,10 +4,28 @@
 
 ## Getting Started
 
+### Prerequisites
+
+ * Tarantool 1.6.5+ with header files (tarantool && tarantool-dev packages)
+
 ### Installation
 
-Add http://rocks.tarantool.org to your luarocks repository.
-Then use `luarocks install http`
+Clone repository and then build it using CMake:
+
+``` bash
+git clone https://github.com/tarantool/http.git
+cd http && cmake . -DCMAKE_BUILD_TYPE=RelWithDebugInfo
+make
+make install
+```
+
+You can also use LuaRocks:
+
+``` bash
+luarocks install https://raw.githubusercontent.com/tarantool/http/master/http-scm-1.rockspec --local
+```
+
+See [tarantool/rocks][TarantoolRocks] for LuaRocks configuration details.
 
 ### Usage
 

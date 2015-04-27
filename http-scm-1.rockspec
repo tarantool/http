@@ -12,11 +12,21 @@ description = {
 dependencies = {
     'lua >= 5.1'
 }
+external_dependencies = {
+    TARANTOOL = {
+        header = "tarantool/tarantool.h"
+    }
+}
 build = {
     type = 'builtin',
 
     modules = {
-        ['http.lib'] = 'http/lib.c',
+        ['http.lib'] = {
+            sources = 'http/lib.c',
+            incdirs = {
+                "$(TARANTOOL_INCDIR)/tarantool"
+            }
+        },
         ['http.client'] = 'http/client.lua',
         ['http.server'] = 'http/server.lua',
         ['http.mime_types'] = 'http/mime_types.lua',

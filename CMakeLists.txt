@@ -17,5 +17,5 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
 add_subdirectory(http)
 
 add_custom_target(test
-    WORKING_DIRECTORY .
-    COMMAND ./test/http.test.lua)
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    COMMAND ${PROJECT_SOURCE_DIR}/test/http.test.lua)
