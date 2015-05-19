@@ -47,7 +47,7 @@ test:test("split_uri", function(test)
 end)
 
 test:test("template", function(test)
-    test:plan(3)
+    test:plan(5)
     test:is(http_lib.template("<% for i = 1, cnt do %> <%= abc %> <% end %>",
         {abc = '1 <3>&" ', cnt = 3}),
         ' 1 &lt;3&gt;&amp;&quot;   1 &lt;3&gt;&amp;&quot;   1 &lt;3&gt;&amp;&quot;  ',
@@ -57,6 +57,33 @@ test:test("template", function(test)
         ' nil  nil  nil ', "tmpl2")
     local r, msg = pcall(http_lib.template, "<% ab() %>", {ab = '1'})
     test:ok(r == false and msg:match("call local 'ab'") ~= nil, "bad template")
+
+    -- gh-18: rendered tempate is truncated
+    local template = [[
+<html>
+<body>
+    <table border="1">
+    % for i,v in pairs(t) do
+    <tr> 
+    <td><%= i %></td>
+    <td><%= v %></td>
+    </tr>
+    % end
+    </table>
+</body>
+</html>
+]]
+
+    local t = {}
+    for i=1,100 do
+        key = i
+        value = string.rep('#', i)
+        t[key] = value
+    end
+
+    local rendered, code = http_lib.template(template, { t = t })
+    test:ok(#rendered > 10000, "rendered size")
+    test:is(rendered:sub(#rendered - 7, #rendered - 1), "</html>", "rendered eof")
 end)
 
 test:test('parse_request', function(test)

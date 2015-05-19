@@ -96,19 +96,18 @@ lbox_httpd_escape_html(struct lua_State *L)
 {
 	int idx  = lua_upvalueindex(1);
 
+	int i, top = lua_gettop(L);
+	lua_rawgeti(L, idx, 1);
+
 	luaL_Buffer b;
 	luaL_buffinit(L, &b);
 
-	lua_pushnumber(L, 1);
-	lua_rawget(L, idx);
 	if (lua_isnil(L, -1)) {
 		luaL_addstring(&b, "");
-		lua_pop(L, 1);
 	} else {
 		luaL_addvalue(&b);
 	}
 
-	int i, top = lua_gettop(L);
 	for (i = 1; i <= top; i++) {
 		if (lua_isnil(L, i)) {
 			luaL_addstring(&b, "nil");
@@ -139,9 +138,8 @@ lbox_httpd_escape_html(struct lua_State *L)
 		}
 	}
 
-	lua_pushnumber(L, 1);
 	luaL_pushresult(&b);
-	lua_rawset(L, idx);
+	lua_rawseti(L, idx, 1);
 	return 0;
 }
 
@@ -150,30 +148,29 @@ lbox_httpd_immediate_html(struct lua_State *L)
 {
 	int idx  = lua_upvalueindex(1);
 
-	luaL_Buffer b;
-	luaL_buffinit(L, &b);
+	int k = 0;
+	int i, top = lua_gettop(L);
 
-	lua_pushnumber(L, 1);
-	lua_rawget(L, idx);
+	lua_rawgeti(L, idx, 1);
 	if (lua_isnil(L, -1)) {
-		luaL_addstring(&b, "");
 		lua_pop(L, 1);
 	} else {
-		luaL_addvalue(&b);
+		++k;
 	}
 
-	int i, top = lua_gettop(L);
+	lua_checkstack(L, top - 1);
 	for (i = 1; i <= top; i++) {
 		if (lua_isnil(L, i)) {
-			luaL_addstring(&b, "nil");
+			lua_pushliteral(L, "nil");
+			++k;
 			continue;
 		}
 		lua_pushvalue(L, i);
-		luaL_addvalue(&b);
+		++k;
 	}
-	lua_pushnumber(L, 1);
-	luaL_pushresult(&b);
-	lua_rawset(L, idx);
+
+	lua_concat(L, k);
+	lua_rawseti(L, idx, 1);
 	return 0;
 }
 
