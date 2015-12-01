@@ -11,6 +11,6 @@ install:
   - sudo apt-get -q install tarantool tarantool-dev
 
 script:
-  - cmake . -DCMAKE_BUILD_TYPE=RelWithDebugInfo
+  - cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo
   - make
   - make test
