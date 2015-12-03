@@ -17,7 +17,8 @@ env:
       - OS=fedora DIST=20 PACK=rpm
       - OS=fedora DIST=21 PACK=rpm
       - OS=fedora DIST=22 PACK=rpm
-      - OS=fedora DIST=23 PACK=rpm
+      # uncomment this after fedora 23 support in tarantool
+      #- OS=fedora DIST=23 PACK=rpm
       - OS=ubuntu DIST=trusty PACK=deb
       - OS=ubuntu DIST=precise PACK=deb
       - OS=ubuntu DIST=vivid PACK=deb
