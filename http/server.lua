@@ -846,6 +846,7 @@ end
 local function set_hook(self, name, sub)
     if sub == nil or type(sub) == 'function' then
         self.hooks[ name ] = sub
+        return self
     end
     errorf("Wrong type for hook function: %s", type(sub))
 end
