@@ -1,14 +1,20 @@
 #!/usr/bin/env tarantool
 
-package.path = "../?/init.lua;../?.lua;./?/init.lua;./?.lua"
-package.cpath = "../?.so;../?.dylib;./?.so;./?.dylib"
+-- Fix tests in out of source build
+local dirs = { "..", ".",  os.getenv("BINARY_DIR") }
+package.path = ""
+package.cpath = ""
+for _, dir in pairs(dirs) do
+    package.path = package.path .. dir .. "/?/init.lua;" .. dir .. "/?.lua;"
+    package.cpath = package.cpath .. dir .. "/?.so;" .. dir .. "/?.dylib;"
+end
 
-tap = require('tap')
-http_lib = require('http.lib')
-http_client = require('http.client')
-http_server = require('http.server')
-json = require('json')
-yaml = require 'yaml'
+local tap = require('tap')
+local http_lib = require('http.lib')
+local http_client = require('http.client')
+local http_server = require('http.server')
+local json = require('json')
+local yaml = require 'yaml'
 local urilib = require('uri')
 
 local test = tap.test("http")
