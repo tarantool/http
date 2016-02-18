@@ -22,9 +22,6 @@ if(TARANTOOL_INCLUDE_DIR)
     unset(_config)
 endif()
 
-message(STATUS "INCLUDE_DIR ${TARANTOOL_INCLUDE_DIR}")
-message(STATUS "PREFIX ${_install_prefix}")
-
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(TARANTOOL
     REQUIRED_VARS TARANTOOL_INCLUDE_DIR VERSION_VAR TARANTOOL_VERSION)
