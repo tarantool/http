@@ -23,20 +23,34 @@ local function sprintf(fmt, ...)
 end
 
 local function uri_escape(str)
-    local res = string.gsub(str, '[^a-zA-Z0-9_]',
-        function(c)
-            return string.format('%%%02X', string.byte(c))
+    local res = {}
+    if type(str) == 'table' then
+        for _, v in pairs(str) do
+            table.insert(res, uri_escape(v))
         end
-    )
+    else
+        res = string.gsub(str, '[^a-zA-Z0-9_]',
+            function(c)
+                return string.format('%%%02X', string.byte(c))
+            end
+        )
+    end
     return res
 end
 
 local function uri_unescape(str)
-    local res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])',
-        function(c)
-            return string.char(tonumber(c, 16))
+    local res = {}
+    if type(str) == 'table' then
+        for _, v in pairs(str) do
+            table.insert(res, uri_unescape(v))
         end
-    )
+    else
+        res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])',
+            function(c)
+                return string.char(tonumber(c, 16))
+            end
+        )
+    end
     return res
 end
 
