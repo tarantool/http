@@ -410,7 +410,7 @@ If `handler` is given in httpd options, it gets
 involved on every HTTP request, and the built-in routing
 mechanism is unused (no other hooks are called in this case).
 
-#### `before_routes(httpd, req)`
+#### `before_dispatch(httpd, req)`
 
 Is invoked before a request is routed to a handler. The first
 argument of the hook is the HTTP request to be handled.

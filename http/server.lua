@@ -532,7 +532,7 @@ response_mt = {
 }
 
 local function handler(self, request)
-    if self.hooks.before_routes ~= nil then
+    if self.hooks.before_dispatch ~= nil then
         self.hooks.before_dispatch(self, request)
     end
 
