@@ -143,7 +143,7 @@ local function post_param(self, name)
             end
             rawset(self, 'post_params', pres)
         end
-        
+
         rawset(self, 'post_param', cached_post_param)
         return self:post_param(name)
 end
@@ -299,7 +299,7 @@ local function load_template(self, r, format)
     else
         errorf("Can not find template for '%s'", r.path)
     end
-    
+
     if self.options.cache_templates then
         if self.cache.tpl[ file ] ~= nil then
             return self.cache.tpl[ file ]
@@ -359,14 +359,14 @@ local function render(tx, opts)
 
         vars = extend(tx.tstash, opts, false)
     end
-    
+
     local tpl
 
     local format = tx.tstash.format
     if format == nil then
         format = 'html'
     end
-    
+
     if tx.endpoint.template ~= nil then
         tpl = tx.endpoint.template
     else
@@ -532,7 +532,6 @@ response_mt = {
 }
 
 local function handler(self, request)
-
     if self.hooks.before_routes ~= nil then
         self.hooks.before_dispatch(self, request)
     end
@@ -553,7 +552,6 @@ local function handler(self, request)
     local stash = extend(r.stash, { format = format })
 
     request.endpoint = r.endpoint
-    request.httpd    = self
     request.tstash   = stash
 
     local resp = r.endpoint.sub(request)
@@ -605,6 +603,7 @@ local function process_client(self, s, peer)
             s:write(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
             break
         end
+        p.httpd = self
         p.s = s
         p.peer = peer
         setmetatable(p, request_mt)
@@ -933,7 +932,7 @@ local function add_route(self, opts, sub)
     end
 
     opts = extend({method = 'ANY'}, opts, false)
-    
+
     local ctx
     local action
 
@@ -948,7 +947,7 @@ local function add_route(self, opts, sub)
         end
 
         sub = ctx_action
-        
+
     elseif type(sub) ~= 'function' then
         errorf("wrong argument: expected function, but received %s",
             type(sub))
@@ -1030,7 +1029,7 @@ local function add_route(self, opts, sub)
 end
 
 local function url_for_httpd(httpd, name, args, query)
-    
+
     local idx = httpd.iroutes[ name ]
     if idx ~= nil then
         return httpd.routes[ idx ]:url_for(args, query)
