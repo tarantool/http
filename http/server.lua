@@ -353,7 +353,7 @@ local function render(tx, opts)
         end
 
         if opts.data ~= nil then
-            resp.body = tostring(data)
+            resp.body = tostring(opts.data)
             return resp
         end
 
