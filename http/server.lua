@@ -254,7 +254,7 @@ local function setcookie(resp, cookie)
         str = sprintf('%s;path=%s', str, uri_escape(cookie.path))
     end
     if cookie.domain ~= nil then
-        str = sprintf('%s;domain=%s', str, domain)
+        str = sprintf('%s;domain=%s', str, cookie.domain)
     end
 
     if cookie.expires ~= nil then
@@ -415,7 +415,7 @@ end
 
 local function iterate(tx, gen, param, state)
     return setmetatable({ body = { gen = gen, param = param, state = state } },
-        respone_mt)
+        response_mt)
 end
 
 local function redirect_to(tx, name, args, query)
@@ -868,7 +868,7 @@ local function url_for_route(r, args, query)
     if args == nil then
         args = {}
     end
-    name = r.path
+    local name = r.path
     for i, sn in pairs(r.stash) do
         local sv = args[sn]
         if sv == nil then

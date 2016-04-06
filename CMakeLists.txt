@@ -16,7 +16,16 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
 
 add_subdirectory(http)
 
+enable_testing()
+
+set (LUA_PATH "LUA_PATH=${PROJECT_SOURCE_DIR}/?.lua\\;${PROJECT_SOURCE_DIR}/?/init.lua\\;\\;")
+set (LUA_SOURCE_DIR "LUA_SOURCE_DIR=${PROJECT_SOURCE_DIR}")
+
+add_test(http ${CMAKE_SOURCE_DIR}/test/http.test.lua)
+
+set_tests_properties(http PROPERTIES ENVIRONMENT "${LUA_PATH};${LUA_SOURCE_DIR}")
+
+# Add `make check`
 add_custom_target(check
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMAND env - BINARY_DIR=${PROJECT_BINARY_DIR}
-            prove -v ./test/http.test.lua)
+    WORKING_DIRECTORY ${PROJECT_BUILD_DIR}
+    COMMAND ctest -V)

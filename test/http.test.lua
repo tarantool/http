@@ -1,15 +1,7 @@
 #!/usr/bin/env tarantool
 
--- Fix tests in out of source build
-local dirs = { "..", ".",  os.getenv("BINARY_DIR") }
-package.path = ""
-package.cpath = ""
-for _, dir in pairs(dirs) do
-    package.path = package.path .. dir .. "/?/init.lua;" .. dir .. "/?.lua;"
-    package.cpath = package.cpath .. dir .. "/?.so;" .. dir .. "/?.dylib;"
-end
-
 local tap = require('tap')
+local fio = require('fio')
 local http_lib = require('http.lib')
 local http_client = require('http.client')
 local http_server = require('http.server')
@@ -70,7 +62,7 @@ test:test("template", function(test)
 <body>
     <table border="1">
     % for i,v in pairs(t) do
-    <tr> 
+    <tr>
     <td><%= i %></td>
     <td><%= v %></td>
     </tr>
@@ -81,10 +73,8 @@ test:test("template", function(test)
 ]]
 
     local t = {}
-    for i=1,100 do
-        key = i
-        value = string.rep('#', i)
-        t[key] = value
+    for i=1, 100 do
+        t[i] = string.rep('#', i)
     end
 
     local rendered, code = http_lib.template(template, { t = t })
@@ -158,7 +148,9 @@ test:test('params', function(test)
 end)
 
 local function cfgserv()
-    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = 'test',
+    local path = os.getenv('LUA_SOURCE_DIR') or './'
+    path = fio.pathjoin(path, 'test')
+    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = path,
         log_requests = false, log_errors = false })
         :route({path = '/abc/:cde/:def', name = 'test'}, function() end)
         :route({path = '/abc'}, function() end)
@@ -392,7 +384,8 @@ end)
             }
             return req:render({json = t})
         end)
-        local bodyf = io.open('./test/public/lorem.txt')
+        local bodyf = os.getenv('LUA_SOURCE_DIR') or './'
+        bodyf = io.open(fio.pathjoin(bodyf, 'test/public/lorem.txt'))
         local body = bodyf:read('*a')
         bodyf:close()
         local r = http_client.post('http://127.0.0.1:12345/post', body)
@@ -404,5 +397,4 @@ end)
     httpd:stop()
 end)
 
-test:check()
-os.exit(0)
+os.exit(test:check() == true and 0 or 1)
