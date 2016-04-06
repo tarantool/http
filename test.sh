@@ -16,9 +16,3 @@ sudo apt-get -q -y install tarantool tarantool-dev --force-yes
 
 # test IS
 cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo && make && make check
-
-make clean -dxff
-
-# test OOS
-mkdir build-test && cd build-test && cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo &&
-    make && make check
