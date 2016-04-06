@@ -4,7 +4,7 @@ services:
 
 env:
     global:
-      - PRODUCT=tarantool-http
+      - PRODUCT=tarantool-queue
 
     matrix:
       - PACK=none
@@ -20,6 +20,7 @@ env:
       - OS=debian DIST=jessie PACK=deb
       - OS=debian DIST=stretch PACK=deb
 
+matrix:
     allow_failures:
       - env: OS=el DIST=6 PACK=rpm
       - env: OS=el DIST=7 PACK=rpm

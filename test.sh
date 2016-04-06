@@ -10,7 +10,7 @@ deb-src http://download.tarantool.org/tarantool/1.6/ubuntu/ $release main
 EOF
 
 sudo apt-get update > /dev/null
-sudo apt-get -q -y install tarantool tarantool-dev
+sudo apt-get -q -y install tarantool tarantool-dev --force-yes
 
 # test IS
 cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo && make && make check
