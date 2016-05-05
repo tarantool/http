@@ -971,9 +971,15 @@ local function add_route(self, opts, sub)
 
     opts.method = string.upper(opts.method)
 
-    if opts.method ~= 'GET' and opts.method ~= 'POST' then
-        opts.method = 'ANY'
+    local methods = { 'GET', 'POST', 'PUT', 'DELETE', 'PATCH' }
+    local method = 'ANY'
+    for _, m in pairs(methods) do
+        if opts.method == m then
+            method = m
+            break
+        end
     end
+    opts.method = method
 
     if opts.path == nil then
         error("path is not defined")
