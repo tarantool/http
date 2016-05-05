@@ -941,6 +941,15 @@ local function ctx_action(tx)
     return mod[action](tx)
 end
 
+local possible_methods = {
+    GET    = 'GET',
+    HEAD   = 'HEAD',
+    POST   = 'POST',
+    PUT    = 'PUT',
+    DELETE = 'DELETE',
+    PATCH  = 'PATCH',
+}
+
 local function add_route(self, opts, sub)
     if type(opts) ~= 'table' or type(self) ~= 'table' then
         error("Usage: httpd:route({ ... }, function(cx) ... end)")
@@ -968,18 +977,7 @@ local function add_route(self, opts, sub)
             type(sub))
     end
 
-
-    opts.method = string.upper(opts.method)
-
-    local methods = { 'GET', 'POST', 'PUT', 'DELETE', 'PATCH' }
-    local method = 'ANY'
-    for _, m in pairs(methods) do
-        if opts.method == m then
-            method = m
-            break
-        end
-    end
-    opts.method = method
+    opts.method = possible_methods[string.upper(opts.method)] or 'ANY'
 
     if opts.path == nil then
         error("path is not defined")

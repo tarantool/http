@@ -312,29 +312,45 @@ test:test("server requests", function(test)
     test:istable(r, ':route')
 
 
-test:test('GET/POST at one route', function(test)
+    test:test('GET/POST at one route', function(test)
+        test:plan(8)
 
-    test:plan(4)
-    r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
-        function(tx)
-            return tx:render({text = 'POST = ' .. tx:read()})
-        end)
+        r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
+            function(tx)
+                return tx:render({text = 'POST = ' .. tx:read()})
+            end)
+        test:istable(r, 'add POST method')
 
-    test:istable(r, 'add POST method')
+        r = httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'},
+            function(tx)
+                return tx:render({text = 'GET = ' .. tx:read()})
+            end )
+        test:istable(r, 'add GET method')
 
+        r = httpd:route({method = 'DELETE', path = '/dit', file = 'helper.html.el'},
+            function(tx)
+                return tx:render({text = 'DELETE = ' .. tx:read()})
+            end )
+        test:istable(r, 'add DELETE method')
 
-    r = httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'},
-        function(tx)
-            return tx:render({text = 'GET = ' .. tx:read()})
-        end )
-    test:istable(r, 'add GET method')
+        r = httpd:route({method = 'PATCH', path = '/dit', file = 'helper.html.el'},
+            function(tx)
+                return tx:render({text = 'PATCH = ' .. tx:read()})
+            end )
+        test:istable(r, 'add PATCH method')
 
-    r = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
-    test:is(r.body, 'POST = test', 'POST reply')
+        r = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
+        test:is(r.body, 'POST = test', 'POST reply')
 
-    r = http_client.request('GET', 'http://127.0.0.1:12345/dit')
-    test:is(r.body, 'GET = ', 'GET reply')
-end)
+        r = http_client.request('GET', 'http://127.0.0.1:12345/dit')
+        test:is(r.body, 'GET = ', 'GET reply')
+
+        r = http_client.request('DELETE', 'http://127.0.0.1:12345/dit', 'test1')
+        test:is(r.body, 'DELETE = test1', 'DELETE reply')
+
+        r = http_client.request('PATCH', 'http://127.0.0.1:12345/dit', 'test2')
+        test:is(r.body, 'PATCH = test2', 'PATCH reply')
+    end)
 
     httpd:route({path = '/chunked'}, function(self)
         return self:iterate(ipairs({'chunked', 'encoding', 't\r\nest'}))
