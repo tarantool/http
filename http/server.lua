@@ -449,7 +449,7 @@ local function request_json(req)
        return json
     else
        error(sprintf("Can't decode json in request '%s': %s",
-           data, json))
+           data, tostring(json)))
        return nil
     end
 end
@@ -636,10 +636,10 @@ local function process_client(self, s, peer)
             local trace = debug.traceback()
             local logerror = self.options.log_errors and log.error or log.debug
             logerror('unhandled error: %s\n%s\nrequest:\n%s',
-                reason, trace, tostring(p))
+                tostring(reason), trace, tostring(p))
             if self.options.display_errors then
             body =
-                  "Unhandled error: " .. reason .. "\n"
+                  "Unhandled error: " .. tostring(reason) .. "\n"
                 .. trace .. "\n\n"
                 .. "\n\nRequest:\n"
                 .. tostring(p)
@@ -923,7 +923,7 @@ local function ctx_action(tx)
     package.loaded[ ctx ] = nil
 
     if not st then
-        errorf("Can't load module '%s': %s'", ctx, mod)
+        errorf("Can't load module '%s': %s'", ctx, tostring(mod))
     end
 
     if type(mod) ~= 'table' then
