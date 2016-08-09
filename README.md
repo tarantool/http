@@ -46,7 +46,7 @@ Returns a Lua table with:
 ```lua
 
     r = require('http.client').request('GET', 'http://google.com')
-    r = require('http.client').request('POST', 'http://google.com', {}, 'text=123')
+    r = require('http.client').request('POST', 'http://google.com', 'text=123', {})
 
 ```
 ## HTTP server
