@@ -72,5 +72,8 @@ deploy:
       condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
 
 notifications:
-  email: true
-  irc: false
+  email:
+    recipients:
+      - build@tarantool.org
+    on_success: change
+    on_failure: always
