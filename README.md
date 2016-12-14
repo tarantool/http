@@ -108,6 +108,7 @@ needed).
 type `text/html`, `text/plain` and `application/json`.
 * `display_errors` - return application errors and backraces to client (like PHP)
 * `log_errors` - log application errors using `log.error()`
+* `log_requests` - log incoming requests
 
 ### Using routes
 
