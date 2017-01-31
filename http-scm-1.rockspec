@@ -14,7 +14,7 @@ dependencies = {
 }
 external_dependencies = {
     TARANTOOL = {
-        header = "tarantool/tarantool.h"
+        header = "tarantool/module.h"
     }
 }
 build = {
@@ -26,7 +26,7 @@ build = {
         ['http.lib'] = {
             sources = 'http/lib.c',
             incdirs = {
-                "$(TARANTOOL_INCDIR)/tarantool"
+                "$(TARANTOOL_INCDIR)"
             }
         },
         ['http.mime_types'] = 'http/mime_types.lua',

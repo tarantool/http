@@ -64,7 +64,7 @@ Returns a Lua table with:
 ```lua
 
     r = require('http.client').request('GET', 'http://google.com')
-    r = require('http.client').request('POST', 'http://google.com', {}, 'text=123')
+    r = require('http.client').request('POST', 'http://google.com', 'text=123', {})
 
 ```
 ## HTTP server
@@ -93,18 +93,18 @@ To start a server:
 'host' and 'port' must  contain the interface and port to bind to.
 'options' may contain:
 
-* `max_header_size` (default is 4096 bytes) - a limit on 
+* `max_header_size` (default is 4096 bytes) - a limit on
 HTTP request header size
 * `header_timeout` (default: 100 seconds) - a time out until
 the server stops reading HTTP headers sent by the client.
-The server closes the client connection if the client can't 
+The server closes the client connection if the client can't
 manage to send its headers in the given amount of time.
-* `app_dir` (default: '.', the server working directory) - 
+* `app_dir` (default: '.', the server working directory) -
 a path to the directory with HTML templates and controllers
-* `handler` - a Lua function to handle HTTP requests (this is 
+* `handler` - a Lua function to handle HTTP requests (this is
 a handler to use if the module "routing" functionality is not
 needed).
-* `charset` - the character set for server responses of 
+* `charset` - the character set for server responses of
 type `text/html`, `text/plain` and `application/json`.
 * `display_errors` - return application errors and backraces to client (like PHP)
 * `log_errors` - log application errors using `log.error()`
@@ -159,7 +159,7 @@ taken from a database
 The second argument is the route handler to be used to produce
 a response to the request.
 
-A typical usage is to avoid passing `file` and `template` arguments, 
+A typical usage is to avoid passing `file` and `template` arguments,
 since these take time to evaluate, but these arguments are useful
 for writing tests or defining HTTP servers with just one "route".
 
@@ -172,7 +172,7 @@ In that case, handler body is taken from a file in `{app_dir}/controllers` direc
 defines a route which matches the file name, and the server serves this
 file automatically, as is. Note, that the server doesn't use sendfile(),
 and reads the entire content of the file in memory before passing
-it to the client. Caching is used, unless is turned on. So this is 
+it to the client. Caching is used, unless is turned on. So this is
 suitable for large files, use nginx instad.
 * `templates` -  a path to templates
 * `controllers` - a path to Lua controllers lua. For example,
@@ -350,7 +350,7 @@ Lua can be used inside a response template, for example:
 
 To embed Lua into a template, use:
 
-* `<% lua-here %>` - insert any Lua code, including multi-line. 
+* `<% lua-here %>` - insert any Lua code, including multi-line.
 Can be used in any location in the template.
 * `% lua-here` - a single line Lua substitution. Can only be
 present in the beginning of a line (with optional preceding spaces
@@ -359,7 +359,7 @@ and tabs, which are ignored).
 A few control characters may follow `%`:
 
 * `=` (e.g., `<%= value + 1 %>`) - runs the embedded Lua
-and inserts the result into HTML. HTML special characters, 
+and inserts the result into HTML. HTML special characters,
 such as `<`, `>`, `&`, `"` are escaped.
 * `==` (e.g., `<%== value + 10 %>`) - the same, but with no
 escaping.
@@ -395,7 +395,7 @@ Using a helper inside an HTML template:
 </div>
 ```
 
-A helper function can receive arguments. The first argument is 
+A helper function can receive arguments. The first argument is
 always the current controller. The rest is whatever is
 passed to the helper from the template.
 
@@ -471,14 +471,13 @@ httpd = httpd.new('127.0.0.1', 8080)
 It is possible to define additional functions invoked at various
 stages of request processing.
 
-#### `handler(req)`
+#### `handler(httpd, req)`
 
 If `handler` is given in httpd options, it gets
 involved on every HTTP request, and the built-in routing
-mechanism is unused.
-The fields and methods of `handler` are same, as for route handler.
+mechanism is unused (no other hooks are called in this case).
 
-#### `before_routes(httpd, request)`
+#### `before_dispatch(httpd, req)`
 
 Is invoked before a request is routed to a handler. The first
 argument of the hook is the HTTP request to be handled.
@@ -490,10 +489,10 @@ This hook could be used to log a request, or modify request headers.
 
 Is invoked after a handler for a route is executed.
 
-The argument of the hook is the request, passed into the handler, 
+The argument of the hook is the request, passed into the handler,
 and the response produced by the handler.
 
-This hook can be used to modify the response. 
+This hook can be used to modify the response.
 The return value of the hook is ignored.
 
 

@@ -1,14 +1,12 @@
 #!/usr/bin/env tarantool
 
-package.path = "../?/init.lua;../?.lua;./?/init.lua;./?.lua"
-package.cpath = "../?.so;../?.dylib;./?.so;./?.dylib"
-
-tap = require('tap')
-http_lib = require('http.lib')
-http_client = require('http.client')
-http_server = require('http.server')
-json = require('json')
-yaml = require 'yaml'
+local tap = require('tap')
+local fio = require('fio')
+local http_lib = require('http.lib')
+local http_client = require('http.client')
+local http_server = require('http.server')
+local json = require('json')
+local yaml = require 'yaml'
 local urilib = require('uri')
 
 local test = tap.test("http")
@@ -64,7 +62,7 @@ test:test("template", function(test)
 <body>
     <table border="1">
     % for i,v in pairs(t) do
-    <tr> 
+    <tr>
     <td><%= i %></td>
     <td><%= v %></td>
     </tr>
@@ -75,10 +73,8 @@ test:test("template", function(test)
 ]]
 
     local t = {}
-    for i=1,100 do
-        key = i
-        value = string.rep('#', i)
-        t[key] = value
+    for i=1, 100 do
+        t[i] = string.rep('#', i)
     end
 
     local rendered, code = http_lib.template(template, { t = t })
@@ -122,21 +118,15 @@ test:test('parse_request', function(test)
 end)
 
 test:test("http request", function(test)
-    test:plan(11)
-    local r = http_client.get("http://tarantool.org/")
-    test:is(r.status, 200, 'mail.ru 200')
-    test:is(r.proto[1], 1, 'mail.ru http 1.1')
-    test:is(r.proto[2], 1, 'mail.ru http 1.1')
-    test:ok(r.body:match("<(html)") ~= nil, "mail.ru is html", r)
+    test:plan(6)
+    local r = http_client.get("http://httpbin.org/")
+    test:is(r.status, 200, 'httpbin 200')
+    test:is(r.proto[1], 1, 'httpbin http 1.1')
+    test:is(r.proto[2], 1, 'httpbin http 1.1')
+    test:ok(r.body:match("<(html)") ~= nil, "httpbin is html", r)
     test:ok(tonumber(r.headers["content-length"]) > 0,
-        "mail.ru content-length > 0")
+        "httpbin content-length > 0")
     test:is(http_client.get("http://localhost:88/").status, 595, 'timeout')
-    local r = http_client.get("http://go.mail.ru/search?fr=main&q=tarantool")
-    test:is(r.status, 200, 'go.mail.ru 200')
-    test:is(r.proto[1], 1, 'go.mail.ru http 1.1')
-    test:is(r.proto[2], 1, 'go.mail.ru http 1.1')
-    test:ok(r.body:match("<(html)") ~= nil, "go.mail.ru is html", r)
-    test:is(http_client.request("GET", "http://tarantool.org/").status, 200, 'alias')
 end)
 
 
@@ -152,7 +142,9 @@ test:test('params', function(test)
 end)
 
 local function cfgserv()
-    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = 'test',
+    local path = os.getenv('LUA_SOURCE_DIR') or './'
+    path = fio.pathjoin(path, 'test')
+    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = path,
         log_requests = false, log_errors = false })
         :route({path = '/abc/:cde/:def', name = 'test'}, function() end)
         :route({path = '/abc'}, function() end)
@@ -314,29 +306,45 @@ test:test("server requests", function(test)
     test:istable(r, ':route')
 
 
-test:test('GET/POST at one route', function(test)
+    test:test('GET/POST at one route', function(test)
+        test:plan(8)
 
-    test:plan(4)
-    r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
-        function(tx)
-            return tx:render({text = 'POST = ' .. tx:read()})
-        end)
+        r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
+            function(tx)
+                return tx:render({text = 'POST = ' .. tx:read()})
+            end)
+        test:istable(r, 'add POST method')
 
-    test:istable(r, 'add POST method')
+        r = httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'},
+            function(tx)
+                return tx:render({text = 'GET = ' .. tx:read()})
+            end )
+        test:istable(r, 'add GET method')
 
+        r = httpd:route({method = 'DELETE', path = '/dit', file = 'helper.html.el'},
+            function(tx)
+                return tx:render({text = 'DELETE = ' .. tx:read()})
+            end )
+        test:istable(r, 'add DELETE method')
 
-    r = httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'},
-        function(tx)
-            return tx:render({text = 'GET = ' .. tx:read()})
-        end )
-    test:istable(r, 'add GET method')
+        r = httpd:route({method = 'PATCH', path = '/dit', file = 'helper.html.el'},
+            function(tx)
+                return tx:render({text = 'PATCH = ' .. tx:read()})
+            end )
+        test:istable(r, 'add PATCH method')
 
-    r = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
-    test:is(r.body, 'POST = test', 'POST reply')
+        r = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
+        test:is(r.body, 'POST = test', 'POST reply')
 
-    r = http_client.request('GET', 'http://127.0.0.1:12345/dit')
-    test:is(r.body, 'GET = ', 'GET reply')
-end)
+        r = http_client.request('GET', 'http://127.0.0.1:12345/dit')
+        test:is(r.body, 'GET = ', 'GET reply')
+
+        r = http_client.request('DELETE', 'http://127.0.0.1:12345/dit', 'test1')
+        test:is(r.body, 'DELETE = test1', 'DELETE reply')
+
+        r = http_client.request('PATCH', 'http://127.0.0.1:12345/dit', 'test2')
+        test:is(r.body, 'PATCH = test2', 'PATCH reply')
+    end)
 
     httpd:route({path = '/chunked'}, function(self)
         return self:iterate(ipairs({'chunked', 'encoding', 't\r\nest'}))
@@ -386,7 +394,8 @@ end)
             }
             return req:render({json = t})
         end)
-        local bodyf = io.open('./test/public/lorem.txt')
+        local bodyf = os.getenv('LUA_SOURCE_DIR') or './'
+        bodyf = io.open(fio.pathjoin(bodyf, 'test/public/lorem.txt'))
         local body = bodyf:read('*a')
         bodyf:close()
         local r = http_client.post('http://127.0.0.1:12345/post', body)
@@ -398,5 +407,4 @@ end)
     httpd:stop()
 end)
 
-test:check()
-os.exit(0)
+os.exit(test:check() == true and 0 or 1)

@@ -51,7 +51,7 @@ local function request(method, urlstr, body, opts)
     end
 
     if url.scheme and url.scheme ~= 'http' then
-        return retcode(599, "Unknown scheme: " .. scheme)
+        return retcode(599, "Unknown scheme: " .. url.scheme)
     end
 
     if string.len(url.host) < 1 then

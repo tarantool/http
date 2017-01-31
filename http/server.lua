@@ -22,20 +22,34 @@ local function sprintf(fmt, ...)
 end
 
 local function uri_escape(str)
-    local res = string.gsub(str, '[^a-zA-Z0-9_]',
-        function(c)
-            return string.format('%%%02X', string.byte(c))
+    local res = {}
+    if type(str) == 'table' then
+        for _, v in pairs(str) do
+            table.insert(res, uri_escape(v))
         end
-    )
+    else
+        res = string.gsub(str, '[^a-zA-Z0-9_]',
+            function(c)
+                return string.format('%%%02X', string.byte(c))
+            end
+        )
+    end
     return res
 end
 
 local function uri_unescape(str)
-    local res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])',
-        function(c)
-            return string.char(tonumber(c, 16))
+    local res = {}
+    if type(str) == 'table' then
+        for _, v in pairs(str) do
+            table.insert(res, uri_unescape(v))
         end
-    )
+    else
+        res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])',
+            function(c)
+                return string.char(tonumber(c, 16))
+            end
+        )
+    end
     return res
 end
 
@@ -142,7 +156,7 @@ local function post_param(self, name)
             end
             rawset(self, 'post_params', pres)
         end
-        
+
         rawset(self, 'post_param', cached_post_param)
         return self:post_param(name)
 end
@@ -239,7 +253,7 @@ local function setcookie(resp, cookie)
         str = sprintf('%s;path=%s', str, uri_escape(cookie.path))
     end
     if cookie.domain ~= nil then
-        str = sprintf('%s;domain=%s', str, domain)
+        str = sprintf('%s;domain=%s', str, cookie.domain)
     end
 
     if cookie.expires ~= nil then
@@ -298,7 +312,7 @@ local function load_template(self, r, format)
     else
         errorf("Can not find template for '%s'", r.path)
     end
-    
+
     if self.options.cache_templates then
         if self.cache.tpl[ file ] ~= nil then
             return self.cache.tpl[ file ]
@@ -357,14 +371,14 @@ local function render(tx, opts)
 
         vars = extend(tx.tstash, opts, false)
     end
-    
+
     local tpl
 
     local format = tx.tstash.format
     if format == nil then
         format = 'html'
     end
-    
+
     if tx.endpoint.template ~= nil then
         tpl = tx.endpoint.template
     else
@@ -399,7 +413,7 @@ end
 
 local function iterate(tx, gen, param, state)
     return setmetatable({ body = { gen = gen, param = param, state = state } },
-        respone_mt)
+        response_mt)
 end
 
 local function redirect_to(tx, name, args, query)
@@ -424,6 +438,18 @@ local function url_for_tx(tx, name, args, query)
         return tx.endpoint:url_for(args, query)
     end
     return tx.httpd:url_for(name, args, query)
+end
+
+local function request_json(req)
+    local data = req:read()
+    local s, json = pcall(json.decode, data)
+    if s then
+       return json
+    else
+       error(sprintf("Can't decode json in request '%s': %s",
+           data, tostring(json)))
+       return nil
+    end
 end
 
 local function request_read(req, opts, timeout)
@@ -517,8 +543,7 @@ response_mt = {
 }
 
 local function handler(self, request)
-
-    if self.hooks.before_routes ~= nil then
+    if self.hooks.before_dispatch ~= nil then
         self.hooks.before_dispatch(self, request)
     end
 
@@ -538,7 +563,6 @@ local function handler(self, request)
     local stash = extend(r.stash, { format = format })
 
     request.endpoint = r.endpoint
-    request.httpd    = self
     request.tstash   = stash
 
     local on_header = nil
@@ -597,6 +621,7 @@ local function process_client(self, s, peer)
             s:write(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
             break
         end
+        p.httpd = self
         p.s = s
         p.peer = peer
         setmetatable(p, request_mt)
@@ -620,10 +645,10 @@ local function process_client(self, s, peer)
             local trace = debug.traceback()
             local logerror = self.options.log_errors and log.error or log.debug
             logerror('unhandled error: %s\n%s\nrequest:\n%s',
-                reason, trace, tostring(p))
+                tostring(reason), trace, tostring(p))
             if self.options.display_errors then
             body =
-                  "Unhandled error: " .. reason .. "\n"
+                  "Unhandled error: " .. tostring(reason) .. "\n"
                 .. trace .. "\n\n"
                 .. "\n\nRequest:\n"
                 .. tostring(p)
@@ -849,6 +874,7 @@ end
 local function set_hook(self, name, sub)
     if sub == nil or type(sub) == 'function' then
         self.hooks[ name ] = sub
+        return self
     end
     errorf("Wrong type for hook function: %s", type(sub))
 end
@@ -857,7 +883,7 @@ local function url_for_route(r, args, query)
     if args == nil then
         args = {}
     end
-    name = r.path
+    local name = r.path
     for i, sn in pairs(r.stash) do
         local sv = args[sn]
         if sv == nil then
@@ -912,7 +938,7 @@ local function ctx_action(tx)
     package.loaded[ ctx ] = nil
 
     if not st then
-        errorf("Can't load module '%s': %s'", ctx, mod)
+        errorf("Can't load module '%s': %s'", ctx, tostring(mod))
     end
 
     if type(mod) ~= 'table' then
@@ -956,13 +982,22 @@ local function add_plugin(self, opts, sub)
     return self
 end
 
+local possible_methods = {
+    GET    = 'GET',
+    HEAD   = 'HEAD',
+    POST   = 'POST',
+    PUT    = 'PUT',
+    DELETE = 'DELETE',
+    PATCH  = 'PATCH',
+}
+
 local function add_route(self, opts, sub)
     if type(opts) ~= 'table' or type(self) ~= 'table' then
         error("Usage: httpd:route({ ... }, function(cx) ... end)")
     end
 
     opts = extend({method = 'ANY'}, opts, false)
-    
+
     local ctx
     local action
 
@@ -977,18 +1012,13 @@ local function add_route(self, opts, sub)
         end
 
         sub = ctx_action
-        
+
     elseif type(sub) ~= 'function' then
         errorf("wrong argument: expected function, but received %s",
             type(sub))
     end
 
-
-    opts.method = string.upper(opts.method)
-
-    if opts.method ~= 'GET' and opts.method ~= 'POST' then
-        opts.method = 'ANY'
-    end
+    opts.method = possible_methods[string.upper(opts.method)] or 'ANY'
 
     if opts.path == nil then
         error("path is not defined")
@@ -1059,7 +1089,7 @@ local function add_route(self, opts, sub)
 end
 
 local function url_for_httpd(httpd, name, args, query)
-    
+
     local idx = httpd.iroutes[ name ]
     if idx ~= nil then
         return httpd.routes[ idx ]:url_for(args, query)

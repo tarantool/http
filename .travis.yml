@@ -1,16 +1,79 @@
-language: cpp
-compiler:
-  - gcc
+sudo: false
+language: C
+services:
+  - docker
 
-install:
-  - uname -a
-  - lsb_release -c -s
-  - curl http://tarantool.org/dist/public.key | sudo apt-key add -
-  - echo "deb http://tarantool.org/dist/master/ubuntu/ `lsb_release -c -s` main" | sudo tee -a /etc/apt/sources.list.d/tarantool.list
-  - sudo apt-get update > /dev/null
-  - sudo apt-get -q install tarantool tarantool-dev
+cache:
+    directories:
+      - $HOME/.cache
+
+env:
+    global:
+      - PRODUCT=tarantool-http
+
+    matrix:
+      - OS=el DIST=6
+      - OS=el DIST=7
+      - OS=fedora DIST=23
+      - OS=fedora DIST=24
+      - OS=fedora DIST=25
+      - OS=ubuntu DIST=precise
+      - OS=ubuntu DIST=trusty
+      - OS=ubuntu DIST=xenial
+      - OS=ubuntu DIST=yakkety
+      - OS=debian DIST=wheezy
+      - OS=debian DIST=jessie
+      - OS=debian DIST=stretch
+
+#matrix:
+#    allow_failures:
+#      - env: OS=el DIST=6
+#      - env: OS=el DIST=7
+#      - env: OS=fedora DIST=23
+#      - env: OS=fedora DIST=24
+#      - env: OS=fedora DIST=25
+#      - env: OS=ubuntu DIST=precise
+#      - env: OS=ubuntu DIST=trusty
+#      - env: OS=ubuntu DIST=xenial
+#      - env: OS=ubuntu DIST=yakkety
+#      - env: OS=debian DIST=wheezy
+#      - env: OS=debian DIST=jessie
+#      - env: OS=debian DIST=stretch
 
 script:
-  - cmake . -DCMAKE_BUILD_TYPE=RelWithDebugInfo
-  - make
-  - make test
+  - git describe --long
+  - git clone https://github.com/packpack/packpack.git packpack
+  - packpack/packpack
+
+before_deploy:
+  - ls -l build/
+
+deploy:
+  # Deploy packages to PackageCloud
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_6"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{deb,rpm}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_7"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{deb,rpm}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+
+notifications:
+  email:
+    recipients:
+      - build@tarantool.org
+    on_success: change
+    on_failure: always
