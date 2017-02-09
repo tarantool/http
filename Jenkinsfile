@@ -1,7 +1,9 @@
 stage('Build'){
+    packpack = new org.tarantool.packpack()
     node {
         checkout scm
-        packpack = new org.tarantool.packpack()
-        packpack.packpackBuildMatrix('result')
+        packpack.prepareSources()
     }
+
+    packpack.packpackBuildMatrix('result')
 }
