@@ -150,7 +150,7 @@ local function post_param(self, name)
             -- TODO: do that!
             rawset(self, 'post_params', {})
         else
-            local params = lib.params(self:read())
+            local params = lib.params(self:read_cached())
             local pres = {}
             for k, v in pairs(params) do
                 pres[ uri_unescape(k) ] = uri_unescape(v)
@@ -443,7 +443,7 @@ local function url_for_tx(tx, name, args, query)
 end
 
 local function request_json(req)
-    local data = req:read()
+    local data = req:read_cached()
     local s, json = pcall(json.decode, data)
     if s then
        return json
@@ -484,6 +484,16 @@ local function request_read(req, opts, timeout)
     assert(remaining >= 0)
     req._remaining = remaining
     return buf
+end
+
+local function request_read_cached(self)
+    if self.cached_data == nil then
+        local data = self:read()
+        rawset(self, 'cached_data', data)
+        return data
+    else
+        return self.cached_data
+    end
 end
 
 local function static_file(self, request, format)
@@ -530,6 +540,7 @@ request_mt = {
         stash       = access_stash,
         url_for     = url_for_tx,
         request_line= request_line,
+        read_cached = request_read_cached,
         query_param = query_param,
         post_param  = post_param,
         param       = param,
