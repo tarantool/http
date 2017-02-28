@@ -38,13 +38,17 @@ local function uri_escape(str)
     return res
 end
 
-local function uri_unescape(str)
+local function uri_unescape(str, unescape_plus_sign)
     local res = {}
     if type(str) == 'table' then
         for _, v in pairs(str) do
             table.insert(res, uri_unescape(v))
         end
     else
+        if unescape_plus_sign ~= nil then
+            str = string.gsub(str, '+', ' ')
+        end
+
         res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])',
             function(c)
                 return string.char(tonumber(c, 16))
@@ -145,21 +149,40 @@ local function query_param(self, name)
         return self:query_param(name)
 end
 
-local function post_param(self, name)
-        if self.headers[ 'content-type' ] == 'multipart/form-data' then
-            -- TODO: do that!
-            rawset(self, 'post_params', {})
-        else
-            local params = lib.params(self:read_cached())
-            local pres = {}
-            for k, v in pairs(params) do
-                pres[ uri_unescape(k) ] = uri_unescape(v)
-            end
-            rawset(self, 'post_params', pres)
-        end
+local function request_content_type(self)
+    -- returns content type without encoding string
+    return string.match(self.headers['content-type'],
+                        '^([^;]*)$') or
+        string.match(self.headers['content-type'],
+                     '^(.*);.*')
+end
 
-        rawset(self, 'post_param', cached_post_param)
-        return self:post_param(name)
+local function post_param(self, name)
+    local content_type = self:content_type()
+    if self:content_type() == 'multipart/form-data' then
+        -- TODO: do that!
+        rawset(self, 'post_params', {})
+    elseif self:content_type() == 'application/json' then
+        local params = self:json()
+        rawset(self, 'post_params', params)
+    elseif self:content_type() == 'application/x-www-form-urlencoded' then
+        local params = lib.params(self:read_cached())
+        local pres = {}
+        for k, v in pairs(params) do
+            pres[ uri_unescape(k) ] = uri_unescape(v, true)
+        end
+        rawset(self, 'post_params', pres)
+    else
+        local params = lib.params(self:read_cached())
+        local pres = {}
+        for k, v in pairs(params) do
+            pres[ uri_unescape(k) ] = uri_unescape(v)
+        end
+        rawset(self, 'post_params', pres)
+    end
+
+    rawset(self, 'post_param', cached_post_param)
+    return self:post_param(name)
 end
 
 local function param(self, name)
@@ -539,6 +562,7 @@ request_mt = {
         iterate     = iterate,
         stash       = access_stash,
         url_for     = url_for_tx,
+        content_type= request_content_type,
         request_line= request_line,
         read_cached = request_read_cached,
         query_param = query_param,
