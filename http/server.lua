@@ -151,6 +151,10 @@ end
 
 local function request_content_type(self)
     -- returns content type without encoding string
+    if self.headers['content-type'] == nil then
+        return nil
+    end
+
     return string.match(self.headers['content-type'],
                         '^([^;]*)$') or
         string.match(self.headers['content-type'],
