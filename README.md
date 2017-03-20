@@ -25,7 +25,7 @@ You can also use LuaRocks:
 luarocks install https://raw.githubusercontent.com/tarantool/http/master/http-scm-1.rockspec --local
 ```
 
-See [tarantool/rocks][TarantoolRocks] for LuaRocks configuration details.
+See [TarantoolRocks](https://github.com/tarantool/rocks) for LuaRocks configuration details.
 
 ### Usage
 
@@ -75,7 +75,7 @@ Unless Tarantool is running under a superuser, ports numbers
 below 1024 may be unavailable.
 
 The server can be started and stopped any time. Multiple
-servers can be creatd.
+servers can be created.
 
 To start a server:
 
