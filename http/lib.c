@@ -493,7 +493,7 @@ httpd_on_param(void *uobj, const char *name, size_t name_len,
 		return 0;
 	}
 	if (lua_istable(L, -1)) {
-		lua_pushnumber(L, luaL_getn(L, -1) + 1);
+		lua_pushnumber(L, lua_objlen(L, -1) + 1);
 		lua_pushlstring(L, value, value_len);
 		lua_rawset(L, -3);
 		lua_pop(L, 2);	/* table and name */
@@ -528,7 +528,7 @@ lbox_httpd_params(struct lua_State *L)
 LUA_API int
 luaopen_http_lib(lua_State *L)
 {
-	static const struct luaL_reg reg[] = {
+	static const struct luaL_Reg reg[] = {
 		{"parse_response", lbox_http_parse_response},
 		{"template", lbox_httpd_template},
 		{"_parse_request", lbox_httpd_parse_request},
