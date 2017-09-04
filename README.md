@@ -5,7 +5,7 @@ align="right">
 
 # HTTP client and server for Tarantool 1.6+
 
-[![Build Status](https://travis-ci.org/tarantool/http.png?branch=master)](https://travis-ci.org/tarantool/http)
+[![Build Status](https://travis-ci.org/tarantool/http.png?branch=tarantool-1.6)](https://travis-ci.org/tarantool/http)
 
 ## Table of contents
 
