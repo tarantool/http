@@ -57,27 +57,7 @@ deploy:
     package_glob: build/*.{deb,rpm}
     skip_cleanup: true
     on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_7"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_8"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      branch: master
+      branch: tarantool-1.6
       condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
 
 notifications:
