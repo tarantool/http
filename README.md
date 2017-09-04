@@ -3,7 +3,7 @@
 align="right">
 </a>
 
-# HTTP client and server for Tarantool 1.6+
+# HTTP server for Tarantool
 
 [![Build Status](https://travis-ci.org/tarantool/http.png?branch=master)](https://travis-ci.org/tarantool/http)
 
@@ -13,9 +13,6 @@ align="right">
   * [Prerequisites](#prerequisites)
   * [Installation](#installation)
   * [Usage](#usage)
-* [HTTP client](#http-client)
-  * [http\.client\.request(method, url, body[, opts])](#httpclientrequestmethod-url-body-opts)
-  * [Example](#example)
 * [HTTP server](#http-server)
   * [server\.new() \- create an HTTP server](#servernew---create-an-http-server)
   * [Using routes](#using-routes)
@@ -68,43 +65,6 @@ You can:
   luarocks install https://raw.githubusercontent.com/tarantool/http/master/http-scm-1.rockspec --local
   ```
 
-### Usage
-
-``` lua
-client = require('http.client')
-print(client.get("http://mail.ru/").status)
-```
-
-## HTTP client
-
-Any kind of HTTP 1.1 query (no SSL support yet).
-
-### http.client.request(method, url, body[, opts])
-
-Issue an HTTP request at the given URL (`url`).
-
-`method` can be either `GET` or `POST`.
-
-If `body` is `nil`, the body is an empty string, otherwise
-the string passed in `body`.
-
-`opts` is an optional Lua table with methods, which may contain `headers` keys
-with additional HTTP headers to send to the server.
-
-Returns a Lua table with:
-
-* `status` - HTTP response status
-* `reason` - HTTP response status text
-* `headers` - a Lua table with normalized HTTP headers
-* `body` - response body
-* `proto` - protocol version
-
-### Example
-
-```lua
-r = require('http.client').request('GET', 'http://google.com')
-r = require('http.client').request('POST', 'http://google.com', 'text=123', {})
-```
 ## HTTP server
 
 The server is an object which is configured with HTTP request

@@ -51,13 +51,23 @@ deploy:
   # Deploy packages to PackageCloud
   - provider: packagecloud
     username: tarantool
-    repository: "1_6"
+    repository: "1_7"
     token: ${PACKAGECLOUD_TOKEN}
     dist: ${OS}/${DIST}
     package_glob: build/*.{deb,rpm}
     skip_cleanup: true
     on:
-      branch: tarantool-1.6
+      branch: tarantool-1.7
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_8"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{deb,rpm}
+    skip_cleanup: true
+    on:
+      branch: tarantool-1.7
       condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
 
 notifications:

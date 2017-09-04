@@ -5,7 +5,7 @@ source  = {
     branch = 'master',
 }
 description = {
-    summary  = "Tarantool module for HTTP client/server.",
+    summary  = "HTTP server for Tarantool",
     homepage = 'https://github.com/tarantool/http/',
     license  = 'BSD',
 }
@@ -27,7 +27,6 @@ build = {
                 "$(TARANTOOL_INCDIR)"
             }
         },
-        ['http.client'] = 'http/client.lua',
         ['http.server'] = 'http/server.lua',
         ['http.mime_types'] = 'http/mime_types.lua',
         ['http.codes'] = 'http/codes.lua',
