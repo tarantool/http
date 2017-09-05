@@ -16,7 +16,7 @@ align="right">
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Usage](#usage)
-  * [server\.new() \- create an HTTP server](#servernew---create-an-http-server)
+* [Creating a server](#creating-a-server)
 * [Using routes](#using-routes)
 * [Contents of app\_dir](#contents-of-app_dir)
 * [Route handlers](#route-handlers)
@@ -77,13 +77,13 @@ servers can be created.
 
 To start a server:
 
-1. Create it with `httpd = require('http.server').new(...)`.
-2. Configure "routing" with `httpd:route(...)`.
+1. [Create it](#creating-a-server) with `httpd = require('http.server').new(...)`.
+2. [Configure routing](#using-routes) with `httpd:route(...)`.
 3. Start it with `httpd:start()`.
 
 To stop the server, use `httpd:stop()`.
 
-### `server.new()` - create an HTTP server
+## Creating a server
 
 ```lua
 httpd = require('http.server').new(host, port[, { options } ])
@@ -119,9 +119,9 @@ by [Mojolicious](http://mojolicio.us/perldoc/Mojolicious/Guides/Routing) API.
 
 Routes can be defined using:
 
-1. an exact match (e.g. "index.php")
-1. simple regular expressions
-1. extended regular expressions
+* an exact match (e.g. "index.php")
+* simple regular expressions
+* extended regular expressions
 
 Route examples:
 
