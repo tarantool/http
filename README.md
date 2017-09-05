@@ -3,9 +3,12 @@
 align="right">
 </a>
 
-# HTTP client and server for Tarantool 1.6+
+# HTTP server + client for Tarantool 1.6.5+
 
 [![Build Status](https://travis-ci.org/tarantool/http.png?branch=tarantool-1.6)](https://travis-ci.org/tarantool/http)
+
+> **Note:** For Tarantool 1.7.5+, a full-featured HTTP client is available aboard
+> and an HTTP server is available [here](https://github.com/tarantool/http).
 
 ## Table of contents
 
@@ -58,7 +61,6 @@ You can:
 
   ``` bash
   tarantoolctl rocks install http
-  ```
 
 * install the `http` module using LuaRocks
   (see [TarantoolRocks](https://github.com/tarantool/rocks) for
@@ -469,4 +471,4 @@ The return value of the hook is ignored.
  * [Tests][] for the `http` module
 
 [Tarantool]: http://github.com/tarantool/tarantool
-[Tests]: https://github.com/tarantool/http/tree/master/test
+[Tests]: https://github.com/tarantool/http/tree/tarantool-1.6/test
