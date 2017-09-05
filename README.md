@@ -3,42 +3,42 @@
 align="right">
 </a>
 
-# HTTP server for Tarantool
+# HTTP server for Tarantool 1.7.5+
 
-[![Build Status](https://travis-ci.org/tarantool/http.png?branch=master)](https://travis-ci.org/tarantool/http)
+[![Build Status](https://travis-ci.org/tarantool/http.png?branch=tarantool-1.7)](https://travis-ci.org/tarantool/http)
+
+> **Note:** In Tarantool 1.7.5+, a full-featured HTTP client is available aboard.
+> For Tarantool 1.6.5+, both HTTP server and client are available
+> [here](https://github.com/tarantool/http/tree/tarantool-1.6).
 
 ## Table of contents
 
-* [Getting started](#getting-started)
-  * [Prerequisites](#prerequisites)
-  * [Installation](#installation)
-  * [Usage](#usage)
-* [HTTP server](#http-server)
+* [Prerequisites](#prerequisites)
+* [Installation](#installation)
+* [Usage](#usage)
   * [server\.new() \- create an HTTP server](#servernew---create-an-http-server)
-  * [Using routes](#using-routes)
-  * [Contents of app\_dir](#contents-of-app_dir)
-  * [Route handlers](#route-handlers)
-    * [Fields and methods of the Request object](#fields-and-methods-of-the-request-object)
-    * [Fields and methods of the Response object](#fields-and-methods-of-the-response-object)
-    * [Examples](#examples)
-  * [Working with stashes](#working-with-stashes)
-    * [Special stash names](#special-stash-names)
-  * [Working with cookies](#working-with-cookies)
-  * [Rendering a template](#rendering-a-template)
-  * [Template helpers](#template-helpers)
-  * [Hooks](#hooks)
-    * [handler(httpd, req)](#handlerhttpd-req)
-    * [before\_dispatch(httpd, req)](#before_dispatchhttpd-req)
-    * [after\_dispatch(cx, resp)](#after_dispatchcx-resp)
+* [Using routes](#using-routes)
+* [Contents of app\_dir](#contents-of-app_dir)
+* [Route handlers](#route-handlers)
+  * [Fields and methods of the Request object](#fields-and-methods-of-the-request-object)
+  * [Fields and methods of the Response object](#fields-and-methods-of-the-response-object)
+  * [Examples](#examples)
+* [Working with stashes](#working-with-stashes)
+  * [Special stash names](#special-stash-names)
+* [Working with cookies](#working-with-cookies)
+* [Rendering a template](#rendering-a-template)
+* [Template helpers](#template-helpers)
+* [Hooks](#hooks)
+  * [handler(httpd, req)](#handlerhttpd-req)
+  * [before\_dispatch(httpd, req)](#before_dispatchhttpd-req)
+  * [after\_dispatch(cx, resp)](#after_dispatchcx-resp)
 * [See also](#see-also)
 
-## Getting started
+## Prerequisites
 
-### Prerequisites
+ * Tarantool 1.7.5+ with header files (`tarantool` && `tarantool-dev` packages)
 
- * Tarantool 1.6.5+ with header files (`tarantool` && `tarantool-dev` packages)
-
-### Installation
+## Installation
 
 You can:
 
@@ -51,7 +51,7 @@ You can:
   make install
   ```
 
-* install the `http` module using `tarantoolctl` (with Tarantool 1.7.4+):
+* install the `http` module using `tarantoolctl`:
 
   ``` bash
   tarantoolctl rocks install http
@@ -65,7 +65,7 @@ You can:
   luarocks install https://raw.githubusercontent.com/tarantool/http/master/http-scm-1.rockspec --local
   ```
 
-## HTTP server
+## Usage
 
 The server is an object which is configured with HTTP request
 handlers, routes (paths), templates, and a port to bind to.
@@ -111,7 +111,7 @@ httpd = require('http.server').new(host, port[, { options } ])
 * `log_errors` - log application errors using `log.error()`.
 * `log_requests` - log incoming requests.
 
-### Using routes
+## Using routes
 
 It is possible to automatically route requests between different
 handlers, depending on the request path. The routing API is inspired
@@ -166,7 +166,7 @@ The handler can also be passed as a string of the form 'filename#functionname'.
 In that case, the handler body is taken from a file in the
 `{app_dir}/controllers` directory.
 
-### Contents of `app_dir`
+## Contents of `app_dir`
 
 * `public` - a path to static content. Everything stored on this path
   defines a route which matches the file name, and the HTTP server serves this
@@ -179,7 +179,7 @@ In that case, the handler body is taken from a file in the
   the controller name 'module.submodule#foo' is mapped to
   `{app_dir}/controllers/module.submodule.lua`.
 
-### Route handlers
+## Route handlers
 
 A route handler is a function which accepts one argument (**Request**) and
 returns one value (**Response**).
@@ -195,7 +195,7 @@ function my_handler(req)
 end
 ```
 
-#### Fields and methods of the Request object
+### Fields and methods of the Request object
 
 * `req.method` - HTTP request type (`GET`, `POST` etc).
 * `req.path` - request path.
@@ -222,7 +222,7 @@ end
 * `req:render({})` - create a **Response** object with a rendered template.
 * `req:redirect_to` - create a **Response** object with an HTTP redirect.
 
-#### Fields and methods of the Response object
+### Fields and methods of the Response object
 
 * `resp.status` - HTTP response code.
 * `resp.headers` - a Lua table with normalized headers.
@@ -230,7 +230,7 @@ end
 * `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'))` -
   adds `Set-Cookie` headers to `resp.headers`.
 
-#### Examples
+### Examples
 
 ```lua
 function my_handler(req)
@@ -246,7 +246,7 @@ function my_handler(req)
 end
 ```
 
-### Working with stashes
+## Working with stashes
 
 ```lua
 function hello(self)
@@ -264,7 +264,7 @@ httpd:route(
 httpd:start()
 ```
 
-#### Special stash names
+### Special stash names
 
 * `controller` - the controller name.
 * `action` - the handler name in the controller.
@@ -273,7 +273,7 @@ httpd:start()
   sets `format` to `js`). When producing a response, `format` is used
   to serve the response's 'Content-type:'.
 
-### Working with cookies
+## Working with cookies
 
 To get a cookie, use:
 
@@ -326,7 +326,7 @@ The table must contain the following fields:
   * `+1m` - 1 month (30 days)
   * `+1y` - 1 year (365 days)
 
-### Rendering a template
+## Rendering a template
 
 Lua can be used inside a response template, for example:
 
@@ -368,7 +368,7 @@ environment:
 1. stashed variables,
 1. variables standing for keys in the `render` table.
 
-### Template helpers
+## Template helpers
 
 Helpers are special functions that are available in all HTML
 templates. These functions must be defined when creating an `httpd` object.
@@ -394,18 +394,18 @@ A helper function can receive arguments. The first argument is
 always the current controller. The rest is whatever is
 passed to the helper from the template.
 
-### Hooks
+## Hooks
 
 It is possible to define additional functions invoked at various
 stages of request processing.
 
-#### `handler(httpd, req)`
+### `handler(httpd, req)`
 
 If `handler` is present in `httpd` options, it gets
 involved on every HTTP request, and the built-in routing
 mechanism is unused (no other hooks are called in this case).
 
-#### `before_dispatch(httpd, req)`
+### `before_dispatch(httpd, req)`
 
 Is invoked before a request is routed to a handler. The first
 argument of the hook is the HTTP request to be handled.
@@ -413,7 +413,7 @@ The return value of the hook is ignored.
 
 This hook could be used to log a request, or modify request headers.
 
-#### `after_dispatch(cx, resp)`
+### `after_dispatch(cx, resp)`
 
 Is invoked after a handler for a route is executed.
 
@@ -429,4 +429,4 @@ The return value of the hook is ignored.
  * [Tests][] for the `http` module
 
 [Tarantool]: http://github.com/tarantool/tarantool
-[Tests]: https://github.com/tarantool/http/tree/master/test
+[Tests]: https://github.com/tarantool/http/tree/tarantool-1.7/test
