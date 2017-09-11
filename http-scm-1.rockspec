@@ -2,7 +2,7 @@ package = 'http'
 version = 'scm-1'
 source  = {
     url    = 'git://github.com/tarantool/http.git',
-    branch = 'master',
+    branch = 'tarantool-1.6',
 }
 description = {
     summary  = "Tarantool module for HTTP client/server.",
