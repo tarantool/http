@@ -661,6 +661,10 @@ local function process_client(self, s, peer)
         p.peer = peer
         setmetatable(p, request_mt)
 
+        if p.headers['expect'] == '100-continue' then
+            s:write('HTTP/1.0 100 Continue\r\n\r\n')
+        end
+
         local logreq = self.options.log_requests and log.info or log.debug
         logreq("%s %s%s", p.method, p.path,
             p.query ~= "" and "?"..p.query or "")
