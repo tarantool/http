@@ -139,8 +139,7 @@ To configure a route, use the `route()` method of the `httpd` object:
 httpd:route({ path = '/path/to' }, 'controller#action')
 httpd:route({ path = '/', template = 'Hello <%= var %>' }, handle1)
 httpd:route({ path = '/:abc/cde', file = 'users.html.el' }, handle2)
-httpd:route({path='/objects', method='GET'}, handle_list_mdobjects)
-
+httpd:route({path = '/objects', method = 'GET'}, handle3)
 ...
 ```
 
