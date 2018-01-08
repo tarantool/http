@@ -133,12 +133,14 @@ Route examples:
 '/ghi*path'         -- a route using an extended regular expression
 ```
 
-To conigure a route, use the `route()` method of the `httpd` object:
+To configure a route, use the `route()` method of the `httpd` object:
 
 ```lua
 httpd:route({ path = '/path/to' }, 'controller#action')
 httpd:route({ path = '/', template = 'Hello <%= var %>' }, handle1)
 httpd:route({ path = '/:abc/cde', file = 'users.html.el' }, handle2)
+httpd:route({path='/objects', method='GET'}, handle_list_mdobjects)
+
 ...
 ```
 
@@ -154,7 +156,7 @@ The first argument for `route()` is a Lua table with one or more keys:
   taken from a database.
 * `path` - route path, as described earlier.
 * `name` - route name.
-
+* `method` - method on the route like `POST`, `GET`, `PUT`, `DELETE`
 The second argument is the route handler to be used to produce
 a response to the request.
 
