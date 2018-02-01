@@ -637,16 +637,25 @@ end
 
 local function process_client(self, s, peer)
     while true do
-        local hdrs = s:read{
-            chunk = self.options.max_header_size,
-            delimiter = { "\n\n", "\r\n\r\n" }
-        }
+        local hdrs = ''
 
-        if hdrs == '' then
-            break -- eof
-        elseif hdrs == nil then
-            log.error('failed to read request: %s', errno.strerror())
-            break
+        while true do
+            local chunk = s:read{
+                delimiter = { "\n\n", "\r\n\r\n" }
+            }
+
+            if chunk == '' then
+                break -- eof
+            elseif chunk == nil then
+                log.error('failed to read request: %s', errno.strerror())
+                return
+            end
+
+            hdrs = hdrs .. chunk
+
+            if string.endswith(hdrs, "\n\n") or string.endswith(hdrs, "\r\n\r\n") then
+                break
+            end
         end
 
         log.debug("request:\n%s", hdrs)
