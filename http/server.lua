@@ -639,12 +639,14 @@ local function process_client(self, s, peer)
     while true do
         local hdrs = ''
 
+        local is_eof = false
         while true do
             local chunk = s:read{
                 delimiter = { "\n\n", "\r\n\r\n" }
             }
 
             if chunk == '' then
+                is_eof = true
                 break -- eof
             elseif chunk == nil then
                 log.error('failed to read request: %s', errno.strerror())
@@ -656,6 +658,10 @@ local function process_client(self, s, peer)
             if string.endswith(hdrs, "\n\n") or string.endswith(hdrs, "\r\n\r\n") then
                 break
             end
+        end
+        
+        if is_eof then
+            break
         end
 
         log.debug("request:\n%s", hdrs)
