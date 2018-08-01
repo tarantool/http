@@ -10,7 +10,7 @@ local yaml = require 'yaml'
 local urilib = require('uri')
 
 local test = tap.test("http")
-test:plan(7)
+test:plan(9)
 test:test("split_uri", function(test)
     test:plan(65)
     local function check(uri, rhs)
@@ -369,5 +369,40 @@ test:test("server requests", function(test)
 
     httpd:stop()
 end)
+
+local function cfgservtwo()
+    local detached = function(httpd, s, peer)
+        test:test('Detached hook is called', function(test)
+                      test:plan(1)
+                      test:ok(true, 'hook called')
+        end)
+    end
+    local path = os.getenv('LUA_SOURCE_DIR') or './'
+    path = fio.pathjoin(path, 'test')
+    local httpd = http_server.new('127.0.0.1', 12346, { app_dir = path,
+        log_requests = false, log_errors = false })
+        :route({path = '/ws', name = 'test'},
+            function()
+                return {status = 200,
+                        body = 'ok',
+                        detach = true,
+                        detach_handler = detached,
+                }
+              end)
+    return httpd
+end
+
+test:test("server requests", function(test)
+              test:plan(2)
+
+              local httpd = cfgservtwo()
+              httpd:start()
+
+              local r = http_client.get('http://127.0.0.1:12346/ws')
+
+              test:is(r.status, 200, 'detached 200')
+              test:is(r.reason, 'Ok', 'detached reason')
+         end
+)
 
 os.exit(test:check() == true and 0 or 1)
