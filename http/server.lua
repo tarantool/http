@@ -10,7 +10,6 @@ local codes = require('http.codes')
 
 local log = require('log')
 local socket = require('socket')
-local fiber = require('fiber')
 local json = require('json')
 local errno = require 'errno'
 
@@ -659,7 +658,7 @@ local function process_client(self, s, peer)
                 break
             end
         end
-        
+
         if is_eof then
             break
         end
@@ -820,6 +819,10 @@ local function process_client(self, s, peer)
             if not s:write(response) then
                 break
             end
+        end
+
+        if reason and reason.detach == true then
+            return reason
         end
 
         if p.proto[1] ~= 1 then
@@ -1128,8 +1131,14 @@ local function httpd_start(self)
         error("httpd: usage: httpd:start()")
     end
 
-    local server = socket.tcp_server(self.host, self.port, { name = 'http',
-        handler = function(...) process_client(self, ...) end })
+    local server = socket.tcp_server(self.host, self.port,
+                     { name = 'http',
+                       handler = function(...)
+                           local res = process_client(self, ...)
+                           if res and res.detach == true then
+                               res.detach_handler(self, ...)
+                           end
+                     end})
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
     end
