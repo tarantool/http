@@ -1,4 +1,5 @@
 return {
+    [101] = 'Switching Protocols',
     [200] = 'Ok',
     [201] = 'Created',
     [202] = 'Accepted',

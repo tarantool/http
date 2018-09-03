@@ -13,6 +13,8 @@ local socket = require('socket')
 local json = require('json')
 local errno = require 'errno'
 
+local DETACHED = 101
+
 local function errorf(fmt, ...)
     error(string.format(fmt, ...))
 end
@@ -722,6 +724,10 @@ local function process_client(self, s, peer)
         elseif reason == nil then
             status = 200
             hdrs = {}
+        elseif type(reason) == 'number' then
+            if reason == DETACHED then
+                break
+            end
         else
             error('invalid response')
         end
@@ -819,10 +825,6 @@ local function process_client(self, s, peer)
             if not s:write(response) then
                 break
             end
-        end
-
-        if reason and reason.detach == true then
-            return reason
         end
 
         if p.proto[1] ~= 1 then
@@ -1135,9 +1137,6 @@ local function httpd_start(self)
                      { name = 'http',
                        handler = function(...)
                            local res = process_client(self, ...)
-                           if res and res.detach == true then
-                               res.detach_handler(self, ...)
-                           end
                      end})
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
@@ -1151,6 +1150,8 @@ local function httpd_start(self)
 end
 
 local exports = {
+    DETACHED = DETACHED,
+
     new = function(host, port, options)
         if options == nil then
             options = {}
