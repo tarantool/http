@@ -23,6 +23,18 @@ local function sprintf(fmt, ...)
     return string.format(fmt, ...)
 end
 
+local function is_callable(obj)
+    local t_obj = type(obj)
+    if t_obj == 'function' then
+        return true
+    end
+    if t_obj == 'table' then
+        local mt = getmetatable(obj)
+        return (type(mt) == 'table' and type(mt.__call) == 'function')
+    end
+    return false
+end
+
 local function uri_escape(str)
     local res = {}
     if type(str) == 'table' then
@@ -1153,62 +1165,62 @@ local function httpd_start(self)
     return self
 end
 
-local exports = {
-    DETACHED = DETACHED,
-
-    new = function(host, port, options)
-        if options == nil then
-            options = {}
-        end
-        if type(options) ~= 'table' then
-            errorf("options must be table not '%s'", type(options))
-        end
-        local default = {
-            max_header_size     = 4096,
-            header_timeout      = 100,
-            handler             = handler,
-            app_dir             = '.',
-            charset             = 'utf-8',
-            cache_templates     = true,
-            cache_controllers   = true,
-            cache_static        = true,
-            log_requests        = true,
-            log_errors          = true,
-            display_errors      = true,
-        }
-
-        local self = {
-            host    = host,
-            port    = port,
-            is_run  = false,
-            stop    = httpd_stop,
-            start   = httpd_start,
-            options = extend(default, options, true),
-
-            routes  = {  },
-            iroutes = {  },
-            helpers = {
-                url_for = url_for_helper,
-            },
-            hooks   = {  },
-
-            -- methods
-            route   = add_route,
-            match   = match_route,
-            helper  = set_helper,
-            hook    = set_hook,
-            url_for = url_for_httpd,
-
-            -- caches
-            cache   = {
-                tpl         = {},
-                ctx         = {},
-                static      = {},
-            },
-        }
-
-        return self
-    end
+local http_server_methods = {
+    stop    = httpd_stop,
+    start   = httpd_start,
+    route   = add_route,
+    match   = match_route,
+    helper  = set_helper,
+    hook    = set_hook,
+    url_for = url_for_httpd,
 }
 
-return exports
+local http_server_mt = {
+    __index = http_server_methods
+}
+
+local http_server_options_default = {
+    max_header_size     = 4096,
+    header_timeout      = 100,
+    handler             = handler,
+    app_dir             = '.',
+    charset             = 'utf-8',
+    cache_templates     = true,
+    cache_controllers   = true,
+    cache_static        = true,
+    log_requests        = true,
+    log_errors          = true,
+    display_errors      = true,
+}
+
+local function http_server_new(host, port, options)
+    options = options or {}
+    if type(options) ~= 'table' then
+        errorf("options must be table, not '%s'", opts_tp)
+    end
+
+    -- populate options table with default values
+    options = extend(table.copy(http_server_options_default), options, true)
+
+    local self = setmetatable({
+        host    = host,
+        port    = port,
+        is_run  = false,
+        options = options,
+
+        routes  = { },
+        iroutes = { },
+        helpers = { url_for = url_for_helper, },
+        hooks   = { },
+
+        -- caches
+        cache   = { tpl = {}, ctx = {}, static = {}, },
+    }, http_server_mt)
+
+    return self
+end
+
+return {
+    DETACHED = DETACHED,
+    new = http_server_new
+}
