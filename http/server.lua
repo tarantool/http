@@ -652,207 +652,6 @@ local function parse_request(req)
     return p
 end
 
-local function process_client(self, s, peer)
-    while true do
-        local hdrs = ''
-
-        local is_eof = false
-        while true do
-            local chunk = s:read{
-                delimiter = { "\n\n", "\r\n\r\n" }
-            }
-
-            if chunk == '' then
-                is_eof = true
-                break -- eof
-            elseif chunk == nil then
-                log.error('failed to read request: %s', errno.strerror())
-                return
-            end
-
-            hdrs = hdrs .. chunk
-
-            if string.endswith(hdrs, "\n\n") or string.endswith(hdrs, "\r\n\r\n") then
-                break
-            end
-        end
-
-        if is_eof then
-            break
-        end
-
-        log.debug("request:\n%s", hdrs)
-        local p = parse_request(hdrs)
-        if p.error ~= nil then
-            log.error('failed to parse request: %s', p.error)
-            s:write(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
-            break
-        end
-        p.httpd = self
-        p.s = s
-        p.peer = peer
-        setmetatable(p, request_mt)
-
-        if p.headers['expect'] == '100-continue' then
-            s:write('HTTP/1.0 100 Continue\r\n\r\n')
-        end
-
-        local logreq = self.options.log_requests and log.info or log.debug
-        logreq("%s %s%s", p.method, p.path,
-            p.query ~= "" and "?"..p.query or "")
-
-        local res, reason = pcall(self.options.handler, self, p)
-        p:read() -- skip remaining bytes of request body
-        local status, hdrs, body
-
-        if not res then
-            status = 500
-            hdrs = {}
-            local trace = debug.traceback()
-            local logerror = self.options.log_errors and log.error or log.debug
-            logerror('unhandled error: %s\n%s\nrequest:\n%s',
-                tostring(reason), trace, tostring(p))
-            if self.options.display_errors then
-            body =
-                  "Unhandled error: " .. tostring(reason) .. "\n"
-                .. trace .. "\n\n"
-                .. "\n\nRequest:\n"
-                .. tostring(p)
-            else
-                body = "Internal Error"
-            end
-       elseif type(reason) == 'table' then
-            if reason.status == nil then
-                status = 200
-            elseif type(reason.status) == 'number' then
-                status = reason.status
-            else
-                error('response.status must be a number')
-            end
-            if reason.headers == nil then
-                hdrs = {}
-            elseif type(reason.headers) == 'table' then
-                hdrs = normalize_headers(reason.headers)
-            else
-                error('response.headers must be a table')
-            end
-            body = reason.body
-        elseif reason == nil then
-            status = 200
-            hdrs = {}
-        elseif type(reason) == 'number' then
-            if reason == DETACHED then
-                break
-            end
-        else
-            error('invalid response')
-        end
-
-        local gen, param, state
-        if type(body) == 'string' then
-            -- Plain string
-            hdrs['content-length'] = #body
-        elseif type(body) == 'function' then
-            -- Generating function
-            gen = body
-            hdrs['transfer-encoding'] = 'chunked'
-        elseif type(body) == 'table' and body.gen then
-            -- Iterator
-            gen, param, state = body.gen, body.param, body.state
-            hdrs['transfer-encoding'] = 'chunked'
-        elseif body == nil then
-            -- Empty body
-            hdrs['content-length'] = 0
-        else
-            body = tostring(body)
-            hdrs['content-length'] = #body
-        end
-
-        if hdrs.server == nil then
-            hdrs.server = sprintf('Tarantool http (tarantool v%s)', _TARANTOOL)
-        end
-
-        if p.proto[1] ~= 1 then
-            hdrs.connection = 'close'
-        elseif p.broken then
-            hdrs.connection = 'close'
-        elseif rawget(p, 'body') == nil then
-            hdrs.connection = 'close'
-        elseif p.proto[2] == 1 then
-            if p.headers.connection == nil then
-                hdrs.connection = 'keep-alive'
-            elseif string.lower(p.headers.connection) ~= 'keep-alive' then
-                hdrs.connection = 'close'
-            else
-                hdrs.connection = 'keep-alive'
-            end
-        elseif p.proto[2] == 0 then
-            if p.headers.connection == nil then
-                hdrs.connection = 'close'
-            elseif string.lower(p.headers.connection) == 'keep-alive' then
-                hdrs.connection = 'keep-alive'
-            else
-                hdrs.connection = 'close'
-            end
-        end
-
-        local response = {
-            "HTTP/1.1 ";
-            status;
-            " ";
-            reason_by_code(status);
-            "\r\n";
-        };
-        for k, v in pairs(hdrs) do
-            if type(v) == 'table' then
-                for i, sv in pairs(v) do
-                    table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), sv))
-                end
-            else
-                table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), v))
-            end
-        end
-        table.insert(response, "\r\n")
-
-        if type(body) == 'string' then
-            table.insert(response, body)
-            response = table.concat(response)
-            if not s:write(response) then
-                break
-            end
-        elseif gen then
-            response = table.concat(response)
-            if not s:write(response) then
-                break
-            end
-            response = nil
-            -- Transfer-Encoding: chunked
-            for _, part in gen, param, state do
-                part = tostring(part)
-                if not s:write(sprintf("%x\r\n%s\r\n", #part, part)) then
-                    break
-                end
-            end
-            if not s:write("0\r\n\r\n") then
-                break
-            end
-        else
-            response = table.concat(response)
-            if not s:write(response) then
-                break
-            end
-        end
-
-        if p.proto[1] ~= 1 then
-            break
-        end
-
-        if hdrs.connection ~= 'keep-alive' then
-            break
-        end
-    end
-end
-
 local function httpd_stop(self)
    if type(self) ~= 'table' then
        error("httpd: usage: httpd:stop()")
@@ -1144,19 +943,234 @@ local function url_for_httpd(httpd, name, args, query)
     end
 end
 
+local function http_server_http11_handler(session)
+    local hdrs = ''
+
+    while true do
+        local chunk = session:read{ delimiter = { "\n\n", "\r\n\r\n" } }
+
+        if chunk == '' then
+            return false
+        elseif chunk == nil then
+            log.error('failed to read request: %s', errno.strerror())
+            return false
+        end
+
+        hdrs = hdrs .. chunk
+
+        if hdrs:endswith("\n\n") or hdrs:endswith("\r\n\r\n") then
+            break
+        end
+    end
+
+    log.debug("request:\n%s", hdrs)
+    local p = parse_request(hdrs)
+    if p.error ~= nil then
+        log.error('failed to parse request: %s', p.error)
+        session:write(sprintf("HTTP/1.1 400 Bad request\r\n\r\n%s", p.error))
+        return false
+    end
+    p.httpd = session.server
+    p.s     = session.socket
+    p.peer  = session.peer
+    setmetatable(p, request_mt)
+
+    if p.headers['expect'] == '100-continue' then
+        session:write('HTTP/1.1 100 Continue\r\n\r\n')
+    elseif p.headers['expect'] then
+        session:write('HTTP/1.1 417 Expectation Failed\r\n\r\n')
+        return false
+    end
+
+    local logreq = session.server.options.log_requests and log.info or log.debug
+    logreq("%s %s%s", p.method, p.path, p.query ~= "" and "?"..p.query or "")
+
+    local res, reason = pcall(session.server.options.handler, session.server, p)
+    p:read() -- skip remaining bytes of request body
+    local status, hdrs, body
+
+    if not res then
+        status = 500
+        hdrs = {}
+        local trace = debug.traceback()
+        local logerror = log.error
+        if session.server.options.log_errors then
+            logerror = log.debug
+        end
+        logerror('unhandled error: %s\n%s\nrequest:\n%s',
+            tostring(reason), trace, tostring(p))
+        if session.server.options.display_errors then
+            body = "Unhandled error: %s\n%s \n\n\n\nRequest:\n%s"
+            body = body:format(tostring(reason), trace, tostring(p))
+        else
+            body = "Internal Error"
+        end
+   elseif type(reason) == 'table' then
+        if reason.status == nil then
+            status = 200
+        elseif type(reason.status) == 'number' then
+            status = reason.status
+        else
+            error('response.status must be a number')
+        end
+        if reason.headers == nil then
+            hdrs = {}
+        elseif type(reason.headers) == 'table' then
+            hdrs = normalize_headers(reason.headers)
+        else
+            error('response.headers must be a table')
+        end
+        body = reason.body
+    elseif reason == nil then
+        status = 200
+        hdrs = {}
+    elseif type(reason) == 'number' then
+        if reason == DETACHED then
+            return false
+        end
+    else
+        error('invalid response')
+    end
+
+    local gen, param, state
+    if type(body) == 'string' then
+        -- Plain string
+        hdrs['content-length'] = #body
+    elseif type(body) == 'function' then
+        -- Generating function
+        gen = body
+        hdrs['transfer-encoding'] = 'chunked'
+    elseif type(body) == 'table' and body.gen then
+        -- Iterator
+        gen, param, state = body.gen, body.param, body.state
+        hdrs['transfer-encoding'] = 'chunked'
+    elseif body == nil then
+        -- Empty body
+        hdrs['content-length'] = 0
+    else
+        body = tostring(body)
+        hdrs['content-length'] = #body
+    end
+
+    if hdrs.server == nil then
+        hdrs.server = sprintf('Tarantool http (tarantool v%s)', _TARANTOOL)
+    end
+
+    if p.proto[1] ~= 1 then
+        hdrs.connection = 'close'
+    elseif p.broken then
+        hdrs.connection = 'close'
+    elseif rawget(p, 'body') == nil then
+        hdrs.connection = 'close'
+    elseif p.proto[2] == 1 then
+        if p.headers.connection == nil then
+            hdrs.connection = 'keep-alive'
+        elseif string.lower(p.headers.connection) ~= 'keep-alive' then
+            hdrs.connection = 'close'
+        else
+            hdrs.connection = 'keep-alive'
+        end
+    elseif p.proto[2] == 0 then
+        if p.headers.connection == nil then
+            hdrs.connection = 'close'
+        elseif string.lower(p.headers.connection) == 'keep-alive' then
+            hdrs.connection = 'keep-alive'
+        else
+            hdrs.connection = 'close'
+        end
+    end
+
+    local response = {
+        "HTTP/1.1 ";
+        status;
+        " ";
+        reason_by_code(status);
+        "\r\n";
+    };
+    for k, v in pairs(hdrs) do
+        if type(v) == 'table' then
+            for i, sv in pairs(v) do
+                table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), sv))
+            end
+        else
+            table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), v))
+        end
+    end
+    table.insert(response, "\r\n")
+
+    if type(body) == 'string' then
+        table.insert(response, body)
+        response = table.concat(response)
+        if not session:write(response) then
+            return false
+        end
+    elseif gen then
+        response = table.concat(response)
+        if not session:write(response) then
+            return false
+        end
+        response = nil
+        -- Transfer-Encoding: chunked
+        for _, part in gen, param, state do
+            part = tostring(part)
+            if not session:write(sprintf("%x\r\n%s\r\n", #part, part)) then
+                return false
+            end
+        end
+        if not session:write("0\r\n\r\n") then
+            return false
+        end
+    else
+        response = table.concat(response)
+        if not session:write(response) then
+            return false
+        end
+    end
+
+    if p.proto[1] ~= 1 then
+        return false
+    end
+
+    return (hdrs.connection == 'keep-alive')
+end
+
+local session_methods = {
+    read  = function(self, ...) return self.socket:read(...)  end,
+    write = function(self, ...) return self.socket:write(...) end,
+}
+
+local session_mt = {
+    __index = session_methods
+}
+
+-- by default we're creating session with HTTP/1.1 support
+local function session_new(self, socket, peer)
+    return setmetatable({
+        server  = self,
+        socket  = socket,
+        peer    = peer,
+        ctx     = { proto = 'HTTP/1.1', handler = http_server_http11_handler },
+    }, session_mt)
+end
+
+local function http_server_tcp_handler(self, sckt, peer)
+    local session = session_new(self, sckt, peer)
+
+    local rv = true
+    repeat
+        rv = session.ctx.handler(session)
+    until not rv
+end
+
 local function httpd_start(self)
     if type(self) ~= 'table' then
         error("httpd: usage: httpd:start()")
     end
 
-    local server = socket.tcp_server(self.host, self.port,
-                     { name = 'http',
-                       handler = function(...)
-                           local res = process_client(self, ...)
-                     end})
-    if server == nil then
-        error(sprintf("Can't create tcp_server: %s", errno.strerror()))
-    end
+    local server = assertf(socket.tcp_server(self.host, self.port, {
+        name = 'http',
+        handler = function(...) http_server_tcp_handler(self, ...) end
+    }), "Can't create tcp_server: %s", errno.strerror())
 
     rawset(self, 'is_run', true)
     rawset(self, 'tcp_server', server)
