@@ -639,19 +639,6 @@ local function normalize_headers(hdrs)
     return res
 end
 
-local function parse_request(req)
-    local p = lib._parse_request(req)
-    if p.error then
-        return p
-    end
-    p.path = uri_unescape(p.path)
-    if p.path:sub(1, 1) ~= "/" or p.path:find("./", nil, true) ~= nil then
-        p.error = "invalid uri"
-        return p
-    end
-    return p
-end
-
 local function httpd_stop(self)
    if type(self) ~= 'table' then
        error("httpd: usage: httpd:stop()")
@@ -943,7 +930,25 @@ local function url_for_httpd(httpd, name, args, query)
     end
 end
 
-local function http_server_http11_handler(session)
+local function httpd_http11_parse_request(session, request_raw)
+    local request_parsed = lib._parse_request(request_raw)
+    if request_parsed.error then
+        return nil, request_parsed.error
+    end
+    request_parsed.path = uri_unescape(request_parsed.path)
+    if request_parsed.path:sub(1, 1) ~= "/" or
+       request_parsed.path:find("./", nil, true) ~= nil then
+        return nil, "invalid uri"
+    end
+    request_parsed.httpd = session.server
+    request_parsed.s     = session.socket
+    request_parsed.peer  = session.peer
+    setmetatable(request_parsed, request_mt)
+
+    return request_parsed
+end
+
+local function httpd_http11_handler(session)
     local hdrs = ''
 
     while true do
@@ -964,16 +969,12 @@ local function http_server_http11_handler(session)
     end
 
     log.debug("request:\n%s", hdrs)
-    local p = parse_request(hdrs)
-    if p.error ~= nil then
-        log.error('failed to parse request: %s', p.error)
-        session:write(sprintf("HTTP/1.1 400 Bad request\r\n\r\n%s", p.error))
-        return false
+    local p, err = httpd_http11_parse_request(session, hdrs)
+    if not p then
+        log.error('failed to parse request: %s', err)
+        session:write(sprintf("HTTP/1.1 400 Bad request\r\n\r\n%s", err))
+        return
     end
-    p.httpd = session.server
-    p.s     = session.socket
-    p.peer  = session.peer
-    setmetatable(p, request_mt)
 
     if p.headers['expect'] == '100-continue' then
         session:write('HTTP/1.1 100 Continue\r\n\r\n')
@@ -1149,11 +1150,11 @@ local function session_new(self, socket, peer)
         server  = self,
         socket  = socket,
         peer    = peer,
-        ctx     = { proto = 'HTTP/1.1', handler = http_server_http11_handler },
+        ctx     = { proto = 'HTTP/1.1', handler = httpd_http11_handler },
     }, session_mt)
 end
 
-local function http_server_tcp_handler(self, sckt, peer)
+local function httpd_tcp_handler(self, sckt, peer)
     local session = session_new(self, sckt, peer)
 
     local rv = true
@@ -1169,7 +1170,7 @@ local function httpd_start(self)
 
     local server = assertf(socket.tcp_server(self.host, self.port, {
         name = 'http',
-        handler = function(...) http_server_tcp_handler(self, ...) end
+        handler = function(...) httpd_tcp_handler(self, ...) end
     }), "Can't create tcp_server: %s", errno.strerror())
 
     rawset(self, 'is_run', true)
@@ -1179,7 +1180,7 @@ local function httpd_start(self)
     return self
 end
 
-local http_server_methods = {
+local httpd_methods = {
     stop    = httpd_stop,
     start   = httpd_start,
     route   = add_route,
@@ -1189,11 +1190,11 @@ local http_server_methods = {
     url_for = url_for_httpd,
 }
 
-local http_server_mt = {
-    __index = http_server_methods
+local httpd_mt = {
+    __index = httpd_methods
 }
 
-local http_server_options_default = {
+local httpd_options_default = {
     max_header_size     = 4096,
     header_timeout      = 100,
     handler             = handler,
@@ -1207,14 +1208,14 @@ local http_server_options_default = {
     display_errors      = true,
 }
 
-local function http_server_new(host, port, options)
+local function httpd_new(host, port, options)
     options = options or {}
     if type(options) ~= 'table' then
         errorf("options must be table, not '%s'", opts_tp)
     end
 
     -- populate options table with default values
-    options = extend(table.copy(http_server_options_default), options, true)
+    options = extend(table.copy(httpd_options_default), options, true)
 
     local self = setmetatable({
         host    = host,
@@ -1229,12 +1230,12 @@ local function http_server_new(host, port, options)
 
         -- caches
         cache   = { tpl = {}, ctx = {}, static = {}, },
-    }, http_server_mt)
+    }, httpd_mt)
 
     return self
 end
 
 return {
     DETACHED = DETACHED,
-    new = http_server_new
+    new = httpd_new
 }
