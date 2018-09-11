@@ -16,11 +16,23 @@ local errno = require 'errno'
 local DETACHED = 101
 
 local function errorf(fmt, ...)
-    error(string.format(fmt, ...))
+    error(string.format(fmt, ...), 3)
 end
 
 local function sprintf(fmt, ...)
     return string.format(fmt, ...)
+end
+
+local function is_callable(obj)
+    local t_obj = type(obj)
+    if t_obj == 'function' then
+        return true
+    end
+    if t_obj == 'table' then
+        local mt = getmetatable(obj)
+        return (type(mt) == 'table' and type(mt.__call) == 'function')
+    end
+    return false
 end
 
 local function is_callable(obj)
@@ -930,7 +942,7 @@ local function url_for_httpd(httpd, name, args, query)
     end
 end
 
-local function httpd_http11_parse_request(session, request_raw)
+local function httpd_parse_request(request_raw)
     local request_parsed = lib._parse_request(request_raw)
     if request_parsed.error then
         return nil, request_parsed.error
@@ -939,6 +951,14 @@ local function httpd_http11_parse_request(session, request_raw)
     if request_parsed.path:sub(1, 1) ~= "/" or
        request_parsed.path:find("./", nil, true) ~= nil then
         return nil, "invalid uri"
+    end
+    return request_parsed
+end
+
+local function httpd_http11_parse_request(session, request_raw)
+    local request_parsed, err = httpd_parse_request(request_raw)
+    if not request_parsed then
+        return nil, err
     end
     request_parsed.httpd = session.server
     request_parsed.s     = session.socket
@@ -974,6 +994,30 @@ local function httpd_http11_handler(session)
         log.error('failed to parse request: %s', err)
         session:write(sprintf("HTTP/1.1 400 Bad request\r\n\r\n%s", err))
         return
+    end
+
+    if p.headers['upgrade'] then
+        local proto_name = p.headers['upgrade']:lower()
+        local proto = session.server.upgrades[proto_name]
+        if not proto then
+            session:write('HTTP/1.1 400 Bad Request\r\n\r\n')
+            return false
+        else
+            local ok, upgrade_ok = pcall(proto.upgrade, session, p)
+            if not ok then
+                log.error("Failed to upgrade to '%s': %s", p.headers['upgrade'],
+                          upgrade_ok)
+                session:write('HTTP/1.1 500 Internal Error\r\n\r\n')
+                return false
+            elseif not upgrade_ok then
+                -- TODO: should we close connection, or we should retry again
+                return false
+            end
+
+            session.ctx.proto   = proto.name
+            session.ctx.handler = proto.handler
+            return true
+        end
     end
 
     if p.headers['expect'] == '100-continue' then
@@ -1180,14 +1224,36 @@ local function httpd_start(self)
     return self
 end
 
+local function httpd_register_extension(self, ext_type, opts)
+    if ext_type:lower() == 'upgrade' then
+        if not (type(opts) == 'table') then
+            errorf("Upgrade extension argument should be table")
+        end
+        if not (type(opts.name) == 'string') then
+            errorf("Upgrade extension name should be %s", 'options.name', 'string')
+        end
+        if not is_callable(opts.upgrade) then
+            errorf("Upgrade extension callback should be callable")
+        end
+        if not is_callable(opts.handler) then
+            errorf("Upgrade extension handler should be callable")
+        end
+
+        self.upgrades[opts.name:lower()] = table.copy(opts)
+    else
+        errorf('Unknown extension type: %s', ext_type)
+    end
+end
+
 local httpd_methods = {
-    stop    = httpd_stop,
-    start   = httpd_start,
-    route   = add_route,
-    match   = match_route,
-    helper  = set_helper,
-    hook    = set_hook,
-    url_for = url_for_httpd,
+    stop               = httpd_stop,
+    start              = httpd_start,
+    route              = add_route,
+    match              = match_route,
+    helper             = set_helper,
+    hook               = set_hook,
+    url_for            = url_for_httpd,
+    register_extension = httpd_register_extension,
 }
 
 local httpd_mt = {
@@ -1223,10 +1289,11 @@ local function httpd_new(host, port, options)
         is_run  = false,
         options = options,
 
-        routes  = { },
-        iroutes = { },
-        helpers = { url_for = url_for_helper, },
-        hooks   = { },
+        routes   = { },
+        iroutes  = { },
+        helpers  = { url_for = url_for_helper, },
+        hooks    = { },
+        upgrades = { },
 
         -- caches
         cache   = { tpl = {}, ctx = {}, static = {}, },
@@ -1236,6 +1303,9 @@ local function httpd_new(host, port, options)
 end
 
 return {
-    DETACHED = DETACHED,
-    new = httpd_new
+    DETACHED      = DETACHED,
+    new           = httpd_new,
+    parse_headers = httpd_parse_request,
+    uri_escape    = uri_escape,
+    uri_unescape  = uri_unescape,
 }

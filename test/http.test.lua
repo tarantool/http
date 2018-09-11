@@ -9,8 +9,10 @@ local json = require('json')
 local yaml = require 'yaml'
 local urilib = require('uri')
 
-local test = tap.test("http")
-test:plan(7)
+local socket = require('socket')
+
+local test = tap.test("http"); test:plan(8)
+
 test:test("split_uri", function(test)
     test:plan(65)
     local function check(uri, rhs)
@@ -386,6 +388,103 @@ test:test("server requests", function(test)
     end)
 
     httpd:stop()
+end)
+
+test:test("upgrade", function(test)
+    test:plan(4)
+
+    local log = require('log')
+
+    local httpd = cfgserv()
+    httpd:start()
+    httpd:register_extension('upgrade', {
+        name = 'exist-error-upgrade',
+        upgrade = function() error('error') end,
+        handler = function() end,
+    })
+    httpd:register_extension('upgrade', {
+        name = 'exist-fails-upgrade',
+        upgrade = function(session)
+            session:write('HTTP/1.1 426 Upgrade Required\r\n\r\n')
+            return false
+        end,
+        handler = function() end,
+    })
+
+    local switching_header = 'HTTP/1.1 101 Switching Protocols\r\n' ..
+                             'Upgrade: exist\r\n' ..
+                             'Connection: Upgrade\r\n\r\n'
+    httpd:register_extension('upgrade', {
+        name = 'exists',
+        upgrade = function(session)
+            session:write(switching_header)
+            return true
+        end,
+        handler = function(session)
+            while true do
+                local in_data = session:read(24)
+                if in_data == '' then
+                    return false
+                end
+                session:write(in_data)
+            end
+        end,
+    })
+
+    test:test("upgrade failed, no protocol", function(test)
+        test:plan(1)
+        local r = http_client.get('http://127.0.0.1:12345/abc', {
+            headers = { upgrade = 'non-existent' }
+        })
+        test:is(r.status, 400, 'Error code is 400')
+    end)
+
+    test:test("upgrade failed, error while upgrade", function(test)
+        test:plan(1)
+        local r = http_client.get('http://127.0.0.1:12345/abc', {
+            headers = { upgrade = 'exist-error-upgrade' }
+        })
+        test:is(r.status, 500, 'Error code is 500')
+    end)
+
+    test:test("upgrade failed, upgrade return false", function(test)
+        test:plan(1)
+        local r = http_client.get('http://127.0.0.1:12345/abc', {
+            headers = { upgrade = 'exist-fails-upgrade' }
+        })
+        test:is(r.status, 426, 'Error code is 426')
+    end)
+
+    local ws_get_r = "GET /abc HTTP/1.1\r\nUpgrade:exists\r\n\r\n"
+
+    test:test("upgrade success, simple tcp echo", function(test)
+        test:plan(3)
+        local sck = socket.tcp_connect('127.0.0.1', 12345)
+        sck:write(ws_get_r)
+        local data = ''
+        while true do
+            local tdata = sck:read({ delimiter = { '\n\n', '\r\n\r\n' } })
+            if not tdata or tdata == '' or
+               tdata:endswith('\r\n\r\n') or tdata:endswith('\n\n') then
+                if tdata then
+                    data = data .. tdata
+                end
+                break
+            end
+        end
+
+        if not data:endswith('\r\n\r\n') then
+            test:fail('automatic fail')
+        else
+            test:is(#data, #switching_header, 'right http upgrade len')
+        end
+
+        local msg = ('x'):rep(24)
+        sck:write(msg)
+        local res = sck:read(#msg)
+        test:is(#res, #msg, 'echo is ok')
+        test:is(res, msg, 'echo is ok')
+    end)
 end)
 
 os.exit(test:check() == true and 0 or 1)
