@@ -306,7 +306,7 @@ function user_login(self)
     local user = box.select(users, 1, login, password)
     if user ~= nil then
         return self:redirect_to('/'):
-            set_cookie({ name = 'uid', value = user[0], expires = '+1y' })
+            setcookie({ name = 'uid', value = user[0], expires = '+1y' })
     end
 
     -- to login again and again and again
