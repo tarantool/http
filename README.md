@@ -281,11 +281,9 @@ To get a cookie, use:
 
 ```lua
 function show_user(self)
-
     local uid = self:cookie('id')
 
     if uid ~= nil and string.match(uid, '^%d$') ~= nil then
-
         local user = box.select(users, 0, uid)
         return self:render({ user = user })
     end
@@ -294,19 +292,19 @@ function show_user(self)
 end
 ```
 
-To set a cookie, use the `cookie()` method as well, but pass to it a Lua
-table defining the cookie to be set:
+To set a cookie, use the `setcookie()` method of a response object and pass to
+it a Lua table defining the cookie to be set:
 
 ```lua
 function user_login(self)
-
     local login = self:param('login')
     local password = self:param('password')
 
     local user = box.select(users, 1, login, password)
     if user ~= nil then
-        return self:redirect_to('/'):
-            set_cookie({ name = 'uid', value = user[0], expires = '+1y' })
+        local resp = self:redirect_to('/')
+        resp:setcookie({ name = 'uid', value = user[0], expires = '+1y' })
+        return resp
     end
 
     -- to login again and again and again
