@@ -508,6 +508,10 @@ local function request_read(req, opts, timeout)
     end
 
     local buf = req.s:read(opts, timeout)
+    if buf == nil then
+        req._remaining = 0
+        return ''
+    end
     remaining = remaining - #buf
     assert(remaining >= 0)
     req._remaining = remaining
