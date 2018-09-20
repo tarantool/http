@@ -62,7 +62,7 @@ You can:
   LuaRocks configuration details):
 
   ``` bash
-  luarocks install https://raw.githubusercontent.com/tarantool/http/master/http-scm-1.rockspec --local
+  luarocks install https://raw.githubusercontent.com/tarantool/http/master/rockspecs/http-scm-1.rockspec --local
   ```
 
 ## Usage
