@@ -200,7 +200,7 @@ test:test("server url_for", function(test)
 end)
 
 test:test("server requests", function(test)
-    test:plan(35)
+    test:plan(36)
     local httpd = cfgserv()
     httpd:start()
 
@@ -329,9 +329,27 @@ test:test("server requests", function(test)
     test:is(r.headers['transfer-encoding'], 'chunked', 'chunked headers')
     test:is(r.body, 'chunkedencodingt\r\nest', 'chunked body')
 
+    test:test('get cookie', function(test)
+        test:plan(2)
+        httpd:route({path = '/receive_cookie'}, function(req)
+            local foo = req:cookie('foo')
+            local baz = req:cookie('baz')
+            return req:render({
+                text = ('foo=%s; baz=%s'):format(foo, baz)
+            })
+        end)
+        local r = http_client.get('http://127.0.0.1:12345/receive_cookie', {
+            headers = {
+                cookie = 'foo=bar; baz=feez',
+            }
+        })
+        test:is(r.status, 200, 'status')
+        test:is(r.body, 'foo=bar; baz=feez', 'body')
+    end)
+
     test:test('cookie', function(test)
         test:plan(2)
-        httpd:route({ path = '/cookie'}, function(req)
+        httpd:route({path = '/cookie'}, function(req)
             local resp = req:render({text = ''})
             resp:setcookie({ name = 'test', value = 'tost',
                 expires = '+1y', path = '/abc' })
