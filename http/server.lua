@@ -988,8 +988,10 @@ local function httpd_http11_handler(session)
         local proto_name = p.headers['upgrade']:lower()
         local proto = session.server.upgrades[proto_name]
         if not proto then
-            session:write('HTTP/1.1 400 Bad Request\r\n\r\n')
-            return false
+            if not session.server.options.ignore_unknown_upgrade then
+                session:write('HTTP/1.1 400 Bad Request\r\n\r\n')
+                return false
+            end
         else
             local ok, upgrade_ok = pcall(proto.upgrade, session, p)
             if not ok then
@@ -1249,17 +1251,18 @@ local httpd_mt = {
 }
 
 local httpd_options_default = {
-    max_header_size     = 4096,
-    header_timeout      = 100,
-    handler             = handler,
-    app_dir             = '.',
-    charset             = 'utf-8',
-    cache_templates     = true,
-    cache_controllers   = true,
-    cache_static        = true,
-    log_requests        = true,
-    log_errors          = true,
-    display_errors      = true,
+    max_header_size        = 4096,
+    header_timeout         = 100,
+    handler                = handler,
+    app_dir                = '.',
+    charset                = 'utf-8',
+    cache_templates        = true,
+    cache_controllers      = true,
+    cache_static           = true,
+    log_requests           = true,
+    log_errors             = true,
+    display_errors         = true,
+    ignore_unknown_upgrade = true,
 }
 
 local function httpd_new(host, port, options)
