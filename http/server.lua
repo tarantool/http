@@ -35,18 +35,6 @@ local function is_callable(obj)
     return false
 end
 
-local function is_callable(obj)
-    local t_obj = type(obj)
-    if t_obj == 'function' then
-        return true
-    end
-    if t_obj == 'table' then
-        local mt = getmetatable(obj)
-        return (type(mt) == 'table' and type(mt.__call) == 'function')
-    end
-    return false
-end
-
 local function uri_escape(str)
     local res = {}
     if type(str) == 'table' then
@@ -726,7 +714,7 @@ local function match_route(self, method, route)
 end
 
 local function set_helper(self, name, sub)
-    if sub == nil or type(sub) == 'function' then
+    if sub == nil or is_callable(sub) then
         self.helpers[ name ] = sub
         return self
     end
@@ -734,7 +722,7 @@ local function set_helper(self, name, sub)
 end
 
 local function set_hook(self, name, sub)
-    if sub == nil or type(sub) == 'function' then
+    if sub == nil or is_callable(sub) then
         self.hooks[ name ] = sub
         return self
     end
@@ -778,7 +766,7 @@ local function ctx_action(tx)
     local action = tx.endpoint.action
     if tx.httpd.options.cache_controllers then
         if tx.httpd.cache[ ctx ] ~= nil then
-            if type(tx.httpd.cache[ ctx ][ action ]) ~= 'function' then
+            if is_callable(tx.httpd.cache[ ctx ][ action ]) then
                 errorf("Controller '%s' doesn't contain function '%s'",
                     ctx, action)
             end
@@ -807,7 +795,7 @@ local function ctx_action(tx)
         errorf("require '%s' didn't return table", ctx)
     end
 
-    if type(mod[ action ]) ~= 'function' then
+    if is_callable(mod[ action ]) then
         errorf("Controller '%s' doesn't contain function '%s'", ctx, action)
     end
 
@@ -849,8 +837,8 @@ local function add_route(self, opts, sub)
 
         sub = ctx_action
 
-    elseif type(sub) ~= 'function' then
-        errorf("wrong argument: expected function, but received %s",
+    elseif not is_callable(sub) then
+        errorf("wrong argument: expected callable, but received %s",
             type(sub))
     end
 
@@ -1081,7 +1069,7 @@ local function httpd_http11_handler(session)
     if type(body) == 'string' then
         -- Plain string
         hdrs['content-length'] = #body
-    elseif type(body) == 'function' then
+    elseif is_callable(body) then
         -- Generating function
         gen = body
         hdrs['transfer-encoding'] = 'chunked'
