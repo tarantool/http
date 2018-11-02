@@ -429,4 +429,4 @@ The return value of the hook is ignored.
  * [Tests][] for the `http` module
 
 [Tarantool]: http://github.com/tarantool/tarantool
-[Tests]: https://github.com/tarantool/http/tree/tarantool-1.7/test
+[Tests]: https://github.com/tarantool/http/tree/master/test
