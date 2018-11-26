@@ -19,8 +19,8 @@ env:
       - OS=ubuntu DIST=trusty
       - OS=ubuntu DIST=xenial
       - OS=ubuntu DIST=artful
-#      currently disabled, see https://github.com/tarantool/http/issues/54
-#      - OS=ubuntu DIST=bionic
+      - OS=ubuntu DIST=bionic
+      - OS=ubuntu DIST=cosmic
       - OS=debian DIST=wheezy
       - OS=debian DIST=jessie
       - OS=debian DIST=stretch
