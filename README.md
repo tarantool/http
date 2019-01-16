@@ -89,7 +89,9 @@ To stop the server, use `httpd:stop()`.
 httpd = require('http.server').new(host, port[, { options } ])
 ```
 
-`host` and `port` must contain the interface and port to bind to.
+`host` and `port` must contain: 
+* For tcp socket: the host and port to bind to.
+* For unix socket: `unix/` and path to socket (for example `/tmp/http-server.sock`) to bind to. 
 
 `options` may contain:
 
