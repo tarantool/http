@@ -28,6 +28,12 @@ build = {
             }
         },
         ['http.server'] = 'http/server.lua',
+        ['http.router.fs'] = 'http/router/fs.lua',
+        ['http.router.request'] = 'http/router/request.lua',
+        ['http.router.response'] = 'http/router/response.lua',
+        ['http.router'] = 'http/router.lua',
+        ['http.tsgi'] = 'http/tsgi.lua',
+        ['http.utils'] = 'http/utils.lua',
         ['http.mime_types'] = 'http/mime_types.lua',
         ['http.codes'] = 'http/codes.lua',
     }
