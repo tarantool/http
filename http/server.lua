@@ -589,6 +589,50 @@ response_mt = {
     }
 }
 
+local function is_function(obj)
+    return type(obj) == 'function'
+end
+
+local function get_request_logger(server_opts, route_opts)
+    if route_opts and route_opts.endpoint.log_requests ~= nil then
+        if is_function(route_opts.endpoint.log_requests) then
+            return route_opts.endpoint.log_requests
+        elseif route_opts.endpoint.log_requests == false then
+            return log.debug
+        end
+    end
+
+    if server_opts.log_requests then
+        if is_function(server_opts.log_requests) then
+            return server_opts.log_requests
+        end
+
+        return log.info
+    end
+
+    return log.debug
+end
+
+local function get_error_logger(server_opts, route_opts)
+    if route_opts and route_opts.endpoint.log_errors ~= nil then
+        if is_function(route_opts.endpoint.log_errors) then
+            return route_opts.endpoint.log_errors
+        elseif route_opts.endpoint.log_errors == false then
+            return log.debug
+        end
+    end
+
+    if server_opts.log_errors then
+        if is_function(server_opts.log_errors) then
+            return server_opts.log_errors
+        end
+
+        return log.error
+    end
+
+    return log.debug
+end
+
 local function handler(self, request)
     if self.hooks.before_dispatch ~= nil then
         self.hooks.before_dispatch(self, request)
@@ -600,7 +644,6 @@ local function handler(self, request)
     if pformat ~= nil then
         format = pformat
     end
-
 
     local r = self:match(request.method, request.path)
     if r == nil then
@@ -685,9 +728,10 @@ local function process_client(self, s, peer)
             s:write('HTTP/1.0 100 Continue\r\n\r\n')
         end
 
-        local logreq = self.options.log_requests and log.info or log.debug
+        local route = self:match(p.method, p.path)
+        local logreq = get_request_logger(self.options, route)
         logreq("%s %s%s", p.method, p.path,
-            p.query ~= "" and "?"..p.query or "")
+               p.query ~= "" and "?"..p.query or "")
 
         local res, reason = pcall(self.options.handler, self, p)
         p:read() -- skip remaining bytes of request body
@@ -697,9 +741,9 @@ local function process_client(self, s, peer)
             status = 500
             hdrs = {}
             local trace = debug.traceback()
-            local logerror = self.options.log_errors and log.error or log.debug
+            local logerror = get_error_logger(self.options, route)
             logerror('unhandled error: %s\n%s\nrequest:\n%s',
-                tostring(reason), trace, tostring(p))
+                     tostring(reason), trace, tostring(p))
             if self.options.display_errors then
             body =
                   "Unhandled error: " .. tostring(reason) .. "\n"
@@ -1098,6 +1142,18 @@ local function add_route(self, opts, sub)
     opts.stash = stash
     opts.sub = sub
     opts.url_for = url_for_route
+
+    if opts.log_requests ~= nil then
+        if type(opts.log_requests) ~= 'function' and type(opts.log_requests) ~= 'boolean' then
+            error("'log_requests' option should be a function or a boolean")
+        end
+    end
+
+    if opts.log_errors ~= nil then
+        if type(opts.log_errors) ~= 'function' and type(opts.log_errors) ~= 'boolean' then
+            error("'log_errors' option should be a function or a boolean")
+        end
+    end
 
     if opts.name ~= nil then
         if opts.name == 'current' then

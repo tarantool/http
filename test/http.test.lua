@@ -10,7 +10,8 @@ local yaml = require 'yaml'
 local urilib = require('uri')
 
 local test = tap.test("http")
-test:plan(7)
+test:plan(8)
+
 test:test("split_uri", function(test)
     test:plan(65)
     local function check(uri, rhs)
@@ -386,6 +387,138 @@ test:test("server requests", function(test)
     end)
 
     httpd:stop()
+end)
+
+local log_queue = {}
+
+local custom_logger = {
+    debug = function() end,
+    verbose = function(...)
+        table.insert(log_queue, { log_lvl = 'verbose', })
+    end,
+    info = function(...)
+        table.insert(log_queue, { log_lvl = 'info', msg = string.format(...)})
+    end,
+    warn = function(...)
+        table.insert(log_queue, { log_lvl = 'warn', msg = string.format(...)})
+    end,
+    error = function(...)
+        table.insert(log_queue, { log_lvl = 'error', msg = string.format(...)})
+    end
+}
+
+local function find_msg_in_log_queue(msg, strict)
+    for _, log in ipairs(log_queue) do
+        if not strict then
+            if log.msg:match(msg) then
+                return log
+            end
+        else
+            if log.msg == msg then
+                return log
+            end
+        end
+    end
+end
+
+local function clear_log_queue()
+    log_queue = {}
+end
+
+test:test("Custom log functions for route", function(test)
+    test:plan(5)
+
+    test:test("Setting log option for server instance", function(test)
+        test:plan(2)
+
+        local httpd = http_server.new("127.0.0.1", 12345, { log_requests = custom_logger.info, log_errors = custom_logger.error })
+        httpd:route({ path='/' }, function(_) end)
+        httpd:route({ path='/error' }, function(_) error('Some error...') end)
+        httpd:start()
+
+        http_client.get("127.0.0.1:12345")
+        test:is_deeply(find_msg_in_log_queue("GET /"), { log_lvl = 'info', msg = 'GET /' }, "Route should logging requests in custom logger if it's presents")
+        clear_log_queue()
+
+        http_client.get("127.0.0.1:12345/error")
+        test:ok(find_msg_in_log_queue("Some error...", false), "Route should logging error in custom logger if it's presents")
+        clear_log_queue()
+
+        httpd:stop()
+    end)
+
+    test:test("Setting log options for route", function(test)
+        test:plan(8)
+        local httpd = http_server.new("127.0.0.1", 12345, { log_requests = true, log_errors = false })
+        local dummy_logger = function() end
+
+        local ok, err = pcall(httpd.route, httpd, { path = '/', log_requests = 3 })
+        test:is(ok, false, "Route logger can't be a log_level digit")
+        test:like(err, "'log_requests' option should be a function", "route() should return error message in case of incorrect logger option")
+
+        ok, err = pcall(httpd.route, httpd, { path = '/', log_requests = { info = dummy_logger } })
+        test:is(ok, false, "Route logger can't be a table")
+        test:like(err, "'log_requests' option should be a function", "route() should return error message in case of incorrect logger option")
+
+        local ok, err = pcall(httpd.route, httpd, { path = '/', log_errors = 3 })
+        test:is(ok, false, "Route error logger can't be a log_level digit")
+        test:like(err, "'log_errors' option should be a function", "route() should return error message in case of incorrect logger option")
+
+        ok, err = pcall(httpd.route, httpd, { path = '/', log_errors = { error = dummy_logger } })
+        test:is(ok, false, "Route error logger can't be a table")
+        test:like(err, "'log_errors' option should be a function", "route() should return error message in case of incorrect log_errors option")
+    end)
+
+    test:test("Log output with custom loggers on route", function(test)
+        test:plan(3)
+        local httpd = http_server.new("127.0.0.1", 12345, { log_requests = true, log_errors = true })
+        httpd:start()
+
+        httpd:route({ path = '/', log_requests = custom_logger.info, log_errors = custom_logger.error }, function(_) end)
+        http_client.get("127.0.0.1:12345")
+        test:is_deeply(find_msg_in_log_queue("GET /"), { log_lvl = 'info', msg = 'GET /' }, "Route should logging requests in custom logger if it's presents")
+        clear_log_queue()
+
+        httpd.routes = {}
+        httpd:route({ path = '/', log_requests = custom_logger.info, log_errors = custom_logger.error }, function(_)
+            error("User business logic exception...")
+        end)
+        http_client.get("127.0.0.1:12345")
+        test:is_deeply(find_msg_in_log_queue("GET /"), { log_lvl = 'info', msg = 'GET /' }, "Route should logging request and error in case of route exception")
+        test:ok(find_msg_in_log_queue("User business logic exception...", false),
+                "Route should logging error custom logger if it's presents in case of route exception")
+        clear_log_queue()
+
+        httpd:stop()
+    end)
+
+    test:test("Log route requests with turned off 'log_requests' option", function(test)
+        test:plan(1)
+        local httpd = http_server.new("127.0.0.1", 12345, { log_requests = false })
+        httpd:start()
+
+        httpd:route({ path = '/', log_requests = custom_logger.info }, function(_) end)
+        http_client.get("127.0.0.1:12345")
+        test:is_deeply(find_msg_in_log_queue("GET /"), { log_lvl = 'info', msg = 'GET /' }, "Route can override logging requests if the http server have turned off 'log_requests' option")
+        clear_log_queue()
+
+        httpd:stop()
+    end)
+
+    test:test("Log route requests with turned off 'log_errors' option", function(test)
+        test:plan(1)
+        local httpd = http_server.new("127.0.0.1", 12345, { log_errors = false })
+        httpd:start()
+
+        httpd:route({ path = '/', log_errors = custom_logger.error }, function(_)
+            error("User business logic exception...")
+        end)
+        http_client.get("127.0.0.1:12345")
+        test:ok(find_msg_in_log_queue("User business logic exception...", false), "Route can override logging requests if the http server have turned off 'log_errors' option")
+        clear_log_queue()
+
+        httpd:stop()
+    end)
 end)
 
 os.exit(test:check() == true and 0 or 1)
