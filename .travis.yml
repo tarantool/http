@@ -7,6 +7,9 @@ cache:
     directories:
       - $HOME/.cache
 
+git:
+    depth: 100500
+
 env:
     global:
       - PRODUCT=tarantool-http
