@@ -1,11 +1,11 @@
 local tsgi = require('http.tsgi')
+local utils = require('http.utils')
 
+require('checks')
 local json = require('json')
 local log = require('log')
 
 local KEY_BODY = 'tsgi.http.nginx_server.body'
-
-local self
 
 local function noop() end
 
@@ -13,12 +13,56 @@ local function convert_headername(name)
     return 'HEADER_' .. string.upper(name)
 end
 
-local function tsgi_input_read(env)
-    return env[KEY_BODY]
+local function tsgi_input_read(self, n)
+    checks('table', '?number')              -- luacheck: ignore
+
+    local start = self._pos
+    local last
+
+    if n ~= nil then
+        last = start + n
+        self._pos = last
+    else
+        last = #self._env[KEY_BODY]
+        self._pos = last
+    end
+
+    return self._env[KEY_BODY]:sub(start, last)
 end
 
-local function make_env(req)
-    -- in nginx dont provide `parse_query` for this to work
+local function tsgi_input_rewind(self)
+    self._pos = 0
+end
+
+local function serialize_request(env)
+    -- {{{
+    -- TODO: copypaste from router/request.lua.
+    -- maybe move it to tsgi.lua.
+
+    local res = env['PATH_INFO']
+    local query_string = env['QUERY_STRING']
+    if query_string ~= nil and query_string ~= '' then
+        res = res .. '?' .. query_string
+    end
+
+    res = utils.sprintf("%s %s %s",
+                        env['REQUEST_METHOD'],
+                        res,
+                        env['SERVER_PROTOCOL'] or 'HTTP/?')
+    res = res .. "\r\n"
+    -- }}} end of request_line copypaste
+
+    for hn, hv in pairs(tsgi.headers(env)) do
+        res = utils.sprintf("%s%s: %s\r\n", res, utils.ucfirst(hn), hv)
+    end
+
+    -- return utils.sprintf("%s\r\n%s", res, self:read_cached())
+    -- NOTE: no body is logged.
+    return res
+end
+
+local function make_env(server, req)
+    -- NGINX Tarantool Upstream `parse_query` option must NOT be set.
     local uriparts = string.split(req.uri, '?')  -- luacheck: ignore
     local path_info, query_string = uriparts[1], uriparts[2]
 
@@ -31,41 +75,62 @@ local function make_env(req)
         ['tsgi.version'] = '1',
         ['tsgi.url_scheme'] = 'http',     -- no support for https
         ['tsgi.input'] = {
+            _pos = 0,                     -- last unread char in body
             read = tsgi_input_read,
-            rewind = nil,                 -- TODO
+            rewind = tsgi_input_rewind,
         },
         ['tsgi.errors'] = {
             write = noop,
             flush = noop,
         },
-        ['tsgi.hijack'] = nil,            -- no hijack with nginx
+        ['tsgi.hijack'] = nil,            -- no support for hijack with nginx
         ['REQUEST_METHOD'] = string.upper(req.method),
-        ['SERVER_NAME'] = self.host,
-        ['SERVER_PORT'] = self.port,
-        ['SCRIPT_NAME'] = '',             -- TODO: what do we put here?
+        ['SERVER_NAME'] = server.host,
+        ['SERVER_PORT'] = server.port,
         ['PATH_INFO'] = path_info,
         ['QUERY_STRING'] = query_string,
         ['SERVER_PROTOCOL'] = req.proto,
 
         [tsgi.KEY_PEER] = {
-            host = self.host,
-            port = self.port,
+            host = server.host,
+            port = server.port,
         },
 
         [KEY_BODY] = body,            -- http body string; used in `tsgi_input_read`
     }
 
+    -- Pass through `env` to env['tsgi.*']:read() functions
+    env['tsgi.input']._env = env
+    env['tsgi.errors']._env = env
+
     for name, value in pairs(req.headers) do
         env[convert_headername(name)] = value
     end
 
+    -- SCRIPT_NAME is a virtual location of your app.
+    --
+    -- Imagine you want to serve your HTTP API under prefix /test
+    -- and later move it to /.
+    --
+    -- Instead of rewriting endpoints to your application, you do:
+    --
+    -- location /test/ {
+    --     proxy_pass http://127.0.0.1:8001/test/;
+    --     proxy_redirect http://127.0.0.1:8001/test/ http://$host/test/;
+    --     proxy_set_header SCRIPT_NAME /test;
+    -- }
+    --
+    -- Application source code is not touched.
+    env['SCRIPT_NAME'] = env['HTTP_SCRIPT_NAME'] or ''
+    env['HTTP_SCRIPT_NAME'] = nil
+
     return env
 end
 
-function nginx_entrypoint(req, ...) -- luacheck: ignore
-    local env = make_env(req, ...)
+local function generic_entrypoint(server, req, ...) -- luacheck: ignore
+    local env = make_env(server, req, ...)
 
-    local ok, resp = pcall(self.router, env)
+    local ok, resp = pcall(server.router, env)
 
     local status = resp.status or 200
     local headers = resp.headers or {}
@@ -75,17 +140,18 @@ function nginx_entrypoint(req, ...) -- luacheck: ignore
         status = 500
         headers = {}
         local trace = debug.traceback()
-        local p = 'TODO_REQUEST_DESCRIPTION'  -- TODO
 
+        -- TODO: copypaste
+        -- TODO: env could be changed. we need to save a copy of it
         log.error('unhandled error: %s\n%s\nrequest:\n%s',
-                 tostring(resp), trace, tostring(p))  -- TODO: tostring(p)
+                 tostring(resp), trace, serialize_request(env))
 
-        if self.display_errors then
+        if server.display_errors then
             body =
                 "Unhandled error: " .. tostring(resp) .. "\n"
                 .. trace .. "\n\n"
                 .. "\n\nRequest:\n"
-                .. tostring(p)  -- TODO: tostring(p)
+                .. serialize_request(env)
         else
             body = "Internal Error"
         end
@@ -112,25 +178,47 @@ function nginx_entrypoint(req, ...) -- luacheck: ignore
     return status, headers, body
 end
 
-local function ngxserver_set_router(_, router)
+local function ngxserver_set_router(self, router)
+    checks('table', 'function')         -- luacheck: ignore
+
     self.router = router
 end
 
-local function init(opts)
-    if not self then
-        self = {
-            host = opts.host,
-            port = opts.port,
-            display_errors = opts.display_errors or true,
+local function ngxserver_start(self)
+    checks('table')                  -- luacheck: ignore
 
-            set_router = ngxserver_set_router,
-            start = noop,  -- TODO: fix
-            stop = noop    -- TODO: fix
-        }
-    end
+    rawset(_G, self.tnt_method, function(...)
+        return generic_entrypoint(self, ...)
+    end)
+end
+
+local function ngxserver_stop(self)
+    checks('table')                  -- luacheck: ignore
+
+    rawset(_G, self.tnt_method, nil)
+end
+
+local function new(opts)
+    checks({                         -- luacheck: ignore
+        host = 'string',
+        port = 'number',
+        tnt_method = 'string',
+        display_errors = '?boolean',
+    })
+
+    local self = {
+        host = opts.host,
+        port = opts.port,
+        tnt_method = opts.tnt_method,
+        display_errors = opts.display_errors or true,
+
+        set_router = ngxserver_set_router,
+        start = ngxserver_start,
+        stop = ngxserver_stop,
+    }
     return self
 end
 
 return {
-    init = init,
+    new = new,
 }

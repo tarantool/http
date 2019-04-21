@@ -139,8 +139,7 @@ local function cfgserv()
     path = fio.pathjoin(path, 'test')
 
     -- TODO
-    --[[
-    local httpd = http_server.new('127.0.0.1', 12345, {
+    --[[local httpd = http_server.new('127.0.0.1', 12345, {
         log_requests = false,
         log_errors = false
     })]]
@@ -148,9 +147,12 @@ local function cfgserv()
     -- host and port are for SERVER_NAME, SERVER_PORT only.
     -- TODO: are they required?
 
-    local httpd = ngx_server.init({
+    local httpd = ngx_server.new({
         host = '127.0.0.1',
         port = 12345,
+        tnt_method = 'nginx_entrypoint',
+        log_requests = false,
+        log_errors = false,
     })
 
     local router = http_router.new(httpd, {app_dir = path})
@@ -168,7 +170,7 @@ local function cfgserv()
         :helper('helper_title', function(self, a) return 'Hello, ' .. a end)
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
-            function(cx) return cx:render({ title = 'title: 123' }) end)
+                function(cx) return cx:render({ title = 'title: 123' }) end)
     return httpd, router
 end
 
@@ -207,6 +209,7 @@ test:test("server url match", function(test)
         '1wulc.z8kiy.6p5e3', "stash with dots")
 end)
 
+
 test:test("server url_for", function(test)
     test:plan(5)
     local httpd, router = cfgserv()
@@ -218,10 +221,10 @@ test:test("server url_for", function(test)
         '/abb/def_v/cde', '/abb/def_v/cde')
     test:is(router:url_for('star', { def = '/def_v' }, { a = 'b', c = 'd' }),
         '/abb/def_v/cde?a=b&c=d', '/abb/def_v/cde?a=b&c=d')
-    end)
+end)
 
 test:test("server requests", function(test)
-    test:plan(36)
+    test:plan(38)
     local httpd, router = cfgserv()
     httpd:start()
 
@@ -299,7 +302,6 @@ test:test("server requests", function(test)
         end)
     test:istable(r, ':route')
 
-
     test:test('GET/POST at one route', function(test)
         test:plan(8)
 
@@ -327,6 +329,7 @@ test:test("server requests", function(test)
             end )
         test:istable(r, 'add PATCH method')
 
+        -- TODO
         r = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
         test:is(r.body, 'POST = test', 'POST reply')
 
@@ -381,6 +384,91 @@ test:test("server requests", function(test)
         test:is(r.status, 200, 'status')
         test:ok(r.headers['set-cookie'] ~= nil, "header")
     end)
+
+    test:test('request object with GET method', function(test)
+        test:plan(7)
+        router:route({path = '/check_req_properties'}, function(req)
+            return {
+                headers = {},
+                body = json.encode({
+                        headers = req.headers,
+                        method = req.method,
+                        path = req.path,
+                        query = req.query,
+                        proto = req.proto,
+                        query_param_bar = req:query_param('bar'),
+                }),
+                status = 200,
+            }
+        end)
+        local r = http_client.get(
+            'http://127.0.0.1:12345/check_req_properties?foo=1&bar=2', {
+            headers = {
+                ['X-test-header'] = 'test-value'
+            }
+        })
+        test:is(r.status, 200, 'status')
+
+        local parsed_body = json.decode(r.body)
+        test:is(parsed_body.headers['x-test-header'], 'test-value', 'req.headers')
+        test:is(parsed_body.method, 'GET', 'req.method')
+        test:is(parsed_body.path, '/check_req_properties', 'req.path')
+        test:is(parsed_body.query, 'foo=1&bar=2', 'req.query')
+        test:is(parsed_body.query_param_bar, '2', 'req:query_param()')
+        test:is_deeply(parsed_body.proto, {1, 1}, 'req.proto')
+    end)
+
+    test:test('request object methods', function(test)
+        test:plan(7)
+        router:route({path = '/check_req_methods_for_json', method = 'POST'}, function(req)
+            return {
+                headers = {},
+                body = json.encode({
+                        request_line = req:request_line(),
+                        read_cached = req:read_cached(),
+                        json = req:json(),
+                        post_param_for_kind = req:post_param('kind'),
+                }),
+                status = 200,
+            }
+        end)
+        router:route({path = '/check_req_methods', method = 'POST'}, function(req)
+                return {
+                    headers = {},
+                    body = json.encode({
+                            request_line = req:request_line(),
+                            read_cached = req:read_cached(),
+                    }),
+                    status = 200,
+                }
+        end)
+
+        r = http_client.post(
+            'http://127.0.0.1:12345/check_req_methods_for_json',
+            '{"kind": "json"}', {
+            headers = {
+                ['Content-type'] = 'application/json',
+                ['X-test-header'] = 'test-value'
+            }
+        })
+        test:is(r.status, 200, 'status')
+
+        local parsed_body = json.decode(r.body)
+        test:is(parsed_body.request_line, 'POST /check_req_methods_for_json HTTP/1.1', 'req.request_line')
+        test:is(parsed_body.read_cached, '{"kind": "json"}', 'json req:read_cached()')
+        test:is_deeply(parsed_body.json, {kind = "json"}, 'req:json()')
+        test:is(parsed_body.post_param_for_kind, "json", 'req:post_param()')
+
+        r = http_client.post(
+            'http://127.0.0.1:12345/check_req_methods',
+            'hello mister'
+        )
+        test:is(r.status, 200, 'status')
+        parsed_body = json.decode(r.body)
+        test:is(parsed_body.read_cached, 'hello mister', 'non-json req:read_cached()')
+    end)
+
+    assert(false)
 
     test:test('post body', function(test)
         test:plan(2)

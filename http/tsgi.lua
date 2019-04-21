@@ -23,7 +23,7 @@ end
 
 local function noop() end
 
-local function tsgi_errors_write(env, msg)  -- luacheck: ignore
+local function tsgi_errors_write(self, msg)  -- luacheck: ignore
     log.error(msg)
 end
 
@@ -35,7 +35,15 @@ local function tsgi_hijack(env)
     return sock
 end
 
-local function tsgi_input_read(env, opts, timeout)
+-- TODO: understand this. Maybe rewrite it to only follow
+-- TSGI logic, and not router logic.
+--
+-- if opts is number, it specifies number of bytes to be read
+-- if opts is a table, it specifies options
+local function tsgi_input_read(self, opts, timeout)
+    checks('table', '?number|string|table', '?number') -- luacheck: ignore
+    local env = self._env
+
     local remaining = env[KEY_REMAINING]
     if not remaining then
         remaining = tonumber(env['HEADER_CONTENT-LENGTH'])  -- TODO: hyphen
@@ -81,23 +89,24 @@ local function make_env(opts)
     local env = {
         [KEY_SOCK] = opts.sock,
         [KEY_HTTPD] = opts.httpd,
-        [KEY_PARSED_REQUEST] = p,        -- TODO: delete?
-        [KEY_PEER] = opts.peer,               -- TODO: delete?
+        [KEY_PARSED_REQUEST] = p,          -- TODO: delete?
+        [KEY_PEER] = opts.peer,            -- TODO: delete?
 
         ['tsgi.version'] = '1',
-        ['tsgi.url_scheme'] = 'http',     -- no support for https yet
+        ['tsgi.url_scheme'] = 'http',      -- no support for https yet
         ['tsgi.input'] = {
             read = tsgi_input_read,
-            rewind = nil,                  -- TODO
+            rewind = nil,                  -- non-rewindable by default
         },
         ['tsgi.errors'] = {
             write = tsgi_errors_write,
-            flush = noop,
+            flush = noop,                  -- TODO: implement
         },
-        ['tsgi.hijack'] = tsgi_hijack,
+        ['tsgi.hijack'] = setmetatable({}, {
+            __call = tsgi_hijack,
+        }),
 
         ['REQUEST_METHOD'] = p.method,
-        ['SCRIPT_NAME'] = '',              -- TODO: what the heck is this?
         ['PATH_INFO'] = p.path,
         ['QUERY_STRING'] = p.query,
         ['SERVER_NAME'] = opts.httpd.host,
@@ -105,18 +114,41 @@ local function make_env(opts)
         ['SERVER_PROTOCOL'] = string.format('HTTP/%d.%d', p.proto[1], p.proto[2]),
     }
 
+    -- Pass through `env` to env['tsgi.*']:*() functions
+    env['tsgi.input']._env = env
+    env['tsgi.errors']._env = env
+    env['tsgi.hijack']._env = env
+
     -- set headers
     for name, value in pairs(p.headers) do
         env[convert_headername(name)] = value
     end
 
+    -- SCRIPT_NAME is a virtual location of your app.
+    --
+    -- Imagine you want to serve your HTTP API under prefix /test
+    -- and later move it to /.
+    --
+    -- Instead of rewriting endpoints to your application, you do:
+    --
+    -- location /test/ {
+    --     proxy_pass http://127.0.0.1:8001/test/;
+    --     proxy_redirect http://127.0.0.1:8001/test/ http://$host/test/;
+    --     proxy_set_header SCRIPT_NAME /test;
+    -- }
+    --
+    -- Application source code is not touched.
+    env['SCRIPT_NAME'] = env['HTTP_SCRIPT_NAME'] or ''
+    env['HTTP_SCRIPT_NAME'] = nil
+
     return env
 end
 
 return {
-    make_env = make_env,
-    headers = headers,
     KEY_HTTPD = KEY_HTTPD,
     KEY_PARSED_REQUEST = KEY_PARSED_REQUEST,
     KEY_PEER = KEY_PEER,
+
+    make_env = make_env,
+    headers = headers,
 }

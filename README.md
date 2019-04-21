@@ -212,7 +212,8 @@ end
 * `tostring(req)` - returns a string representation of the request.
 * `req:request_line()` - returns the request body.
 * `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - reads the
-  raw request body as a stream (see `socket:read()`).
+  raw request body as a stream (see `socket:read()`). **NOTE**: When using
+  NGINX TSGI adapter, only `req:read(chunk)` is available.
 * `req:json()` - returns a Lua table from a JSON request.
 * `req:post_param(name)` - returns a single POST request a parameter value.
   If `name` is `nil`, returns all parameters as a Lua table.

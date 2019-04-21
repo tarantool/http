@@ -43,6 +43,33 @@ local function parse_request(req)
     return p
 end
 
+local function serialize_request(env)
+    -- {{{
+    -- TODO: copypaste from router/request.lua.
+    -- maybe move it to tsgi.lua.
+
+    local res = env['PATH_INFO']
+    local query_string = env['QUERY_STRING']
+    if query_string ~= nil and query_string ~= '' then
+        res = res .. '?' .. query_string
+    end
+
+    res = utils.sprintf("%s %s %s",
+                         env['REQUEST_METHOD'],
+                         res,
+                         env['SERVER_PROTOCOL'] or 'HTTP/?')
+    res = res .. "\r\n"
+    -- }}} end of request_line copypaste
+
+    for hn, hv in pairs(tsgi.headers(env)) do
+        res = utils.sprintf("%s%s: %s\r\n", res, utils.ucfirst(hn), hv)
+    end
+
+    -- return utils.sprintf("%s\r\n%s", res, self:read_cached())
+    -- NOTE: no body is logged.
+    return res
+end
+
 local function process_client(self, s, peer)
     while true do
         -- read headers, until double CRLF
@@ -112,14 +139,17 @@ local function process_client(self, s, peer)
             hdrs = {}
             local trace = debug.traceback()
             local logerror = self.options.log_errors and log.error or log.debug
+
+            -- TODO: copypaste
             logerror('unhandled error: %s\n%s\nrequest:\n%s',
-                tostring(resp), trace, tostring(p))  -- TODO: tostring(p)
+                tostring(resp), trace, serialize_request(env))
             if self.options.display_errors then
+            -- TODO: env could be changed. we need to save a copy of it
             body =
                   "Unhandled error: " .. tostring(resp) .. "\n"
                 .. trace .. "\n\n"
                 .. "\n\nRequest:\n"
-                .. tostring(p)  -- TODO: tostring(p)
+                .. serialize_request(env)
             else
                 body = "Internal Error"
             end
@@ -282,6 +312,8 @@ local function httpd_start(self)
         error("httpd: usage: httpd:start()")
     end
 
+    assert(self.options.handler ~= nil, 'Router must be set before calling server:start()')
+
     local server = socket.tcp_server(self.host, self.port,
                                      { name = 'http',
                                        handler = function(...)
@@ -311,7 +343,7 @@ local new = function(host, port, options)
     end
 
     local default = {
-        handler             = nil,   -- TODO
+        handler             = nil,   -- no router set-up initially
         log_requests        = true,
         log_errors          = true,
         display_errors      = true,

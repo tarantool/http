@@ -19,12 +19,35 @@ local function url_for_helper(tx, name, args, query)
 end
 
 local function request_from_env(env, router)  -- luacheck: ignore
+    -- TODO: khm... what if we have nginx tsgi?
+    -- we need to restrict ourselves to generic TSGI
+    -- methods and properties!
+
     local tsgi = require('http.tsgi')
 
-    local request = {}
-    request.router = router
-    request.env = env
-    request.peer = env[tsgi.KEY_PEER]    -- TODO: delete
+    local request = {
+        router = router,
+        env = env,
+        peer = env[tsgi.KEY_PEER],    -- TODO: delete
+        method = env['REQUEST_METHOD'],
+        path = env['PATH_INFO'],
+        query = env['QUERY_STRING'],
+    }
+
+    -- parse SERVER_PROTOCOL which is 'HTTP/<maj>.<min>'
+    local maj = env['SERVER_PROTOCOL']:sub(-3, -3)
+    local min = env['SERVER_PROTOCOL']:sub(-1, -1)
+    request.proto = {
+        [1] = tonumber(maj),
+        [2] = tonumber(min),
+    }
+
+    request.headers = {}
+    for name, value in pairs(tsgi.headers(env)) do
+        -- strip HEADER_ part and convert to lowercase
+        local converted_name = name:sub(8):lower()
+        request.headers[converted_name] = value
+    end
 
     return setmetatable(request, request_metatable)
 end

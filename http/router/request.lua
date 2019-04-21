@@ -32,9 +32,12 @@ end
 
 local function request_line(self)
     local rstr = self.env['PATH_INFO']
-    if string.len(self.env['QUERY_STRING']) then
-        rstr = rstr .. '?' .. self.env['QUERY_STRING']
+
+    local query_string = self.env['QUERY_STRING']
+    if  query_string ~= nil and query_string ~= '' then
+        rstr = rstr .. '?' .. query_string
     end
+
     return utils.sprintf("%s %s %s",
         self.env['REQUEST_METHOD'],
         rstr,
@@ -42,7 +45,7 @@ local function request_line(self)
 end
 
 local function query_param(self, name)
-    if self.env['QUERY_STRING'] == nil and string.len(self.env['QUERY_STRING']) == 0 then
+    if self.env['QUERY_STRING'] ~= nil and string.len(self.env['QUERY_STRING']) == 0 then
         rawset(self, 'query_params', {})
     else
         local params = lib.params(self.env['QUERY_STRING'])
@@ -169,13 +172,13 @@ end
 
 local function request_read(self, opts, timeout)
     local env = self.env
-    return env['tsgi.input'].read(env, opts, timeout)
+    return env['tsgi.input']:read(opts, timeout)  -- TODO: TSGI spec is violated
 end
 
 local function request_read_cached(self)
     if self.cached_data == nil then
         local env = self.env
-        local data = env['tsgi.input'].read(env)
+        local data = env['tsgi.input']:read()
         rawset(self, 'cached_data', data)
         return data
     else
