@@ -163,7 +163,6 @@ local function request_content_type(self)
 end
 
 local function post_param(self, name)
-    local content_type = self:content_type()
     if self:content_type() == 'multipart/form-data' then
         -- TODO: do that!
         rawset(self, 'post_params', {})
@@ -213,7 +212,7 @@ local function catfile(...)
         return
     end
 
-    for i, pe in pairs(sp) do
+    for _, pe in pairs(sp) do
         if path == nil then
             path = pe
         elseif string.match(path, '.$') ~= '/' then
@@ -471,13 +470,13 @@ local function url_for_tx(tx, name, args, query)
 end
 
 local function request_json(req)
-    local data = req:read_cached()
-    local s, json = pcall(json.decode, data)
+    local raw_data = req:read_cached()
+    local s, data = pcall(json.decode, raw_data)
     if s then
-       return json
+       return data
     else
        error(sprintf("Can't decode json in request '%s': %s",
-           data, tostring(json)))
+           data, tostring(data)))
        return nil
     end
 end
@@ -872,7 +871,7 @@ local function match_route(self, method, route)
     local fit
     local stash = {}
 
-    for k, r in pairs(self.routes) do
+    for _, r in pairs(self.routes) do
         if r.method == method or r.method == 'ANY' then
             local m = { string.match(route, r.match)  }
             local nfit
@@ -936,7 +935,7 @@ local function url_for_route(r, args, query)
         args = {}
     end
     local name = r.path
-    for i, sn in pairs(r.stash) do
+    for _, sn in pairs(r.stash) do
         local sv = args[sn]
         if sv == nil then
             sv = ''
@@ -1140,7 +1139,7 @@ local function httpd_start(self)
     local server = socket.tcp_server(self.host, self.port,
                      { name = 'http',
                        handler = function(...)
-                           local res = process_client(self, ...)
+                           process_client(self, ...)
                      end})
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
