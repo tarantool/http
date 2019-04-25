@@ -10,6 +10,22 @@ local http_router = require('http.router')
 local json = require('json')
 local urilib = require('uri')
 
+-- fix tap and http logs interleaving.
+--
+-- tap module writes to stdout,
+-- http-server logs to stderr.
+-- this results in non-synchronized output.
+--
+-- somehow redirecting stdout to stderr doesn't
+-- remove buffering of tap logs (at least on OSX).
+-- Monkeypatching to the rescue!
+
+local orig_iowrite = io.write
+package.loaded['io'].write = function(...)
+    orig_iowrite(...)
+    io.flush()
+end
+
 box.cfg{listen = '127.0.0.1:3301'}  -- luacheck: ignore
 box.schema.user.grant(              -- luacheck: ignore
     'guest', 'read,write,execute', 'universe', nil, {if_not_exists = true}
@@ -134,27 +150,40 @@ test:test('params', function(test)
         {a = { 'b', '1' }, b = 'cde'}, 'array')
 end)
 
+local function is_nginx_test()
+    local server_type = os.getenv('SERVER_TYPE') or 'builtin'
+    return server_type:lower() == 'nginx'
+end
+
+local function is_builtin_test()
+    return not is_nginx_test()
+end
+
+local function choose_server()
+    if is_nginx_test() then
+        -- host and port are for SERVER_NAME, SERVER_PORT only.
+        -- TODO: are they required?
+
+        return ngx_server.new({
+            host = '127.0.0.1',
+            port = 12345,
+            tnt_method = 'nginx_entrypoint',
+            log_requests = false,
+            log_errors = false,
+        })
+    end
+
+    return http_server.new('127.0.0.1', 12345, {
+        log_requests = false,
+        log_errors = false
+    })
+end
+
 local function cfgserv()
     local path = os.getenv('LUA_SOURCE_DIR') or './'
     path = fio.pathjoin(path, 'test')
 
-    -- TODO
-    --[[local httpd = http_server.new('127.0.0.1', 12345, {
-        log_requests = false,
-        log_errors = false
-    })]]
-
-    -- host and port are for SERVER_NAME, SERVER_PORT only.
-    -- TODO: are they required?
-
-    local httpd = ngx_server.new({
-        host = '127.0.0.1',
-        port = 12345,
-        tnt_method = 'nginx_entrypoint',
-        log_requests = false,
-        log_errors = false,
-    })
-
+    local httpd = choose_server()
     local router = http_router.new(httpd, {app_dir = path})
         :route({path = '/abc/:cde/:def', name = 'test'}, function() end)
         :route({path = '/abc'}, function() end)
@@ -289,12 +318,18 @@ test:test("server requests", function(test)
     test:is(r.status, 500, 'die 500')
     --test:is(r.reason, 'Internal server error', 'die reason')
 
-    router:route({ path = '/info' }, function(cx)
-        return cx:render({ json = cx.peer })
-    end)
-    local r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
-    test:is(r.host, '127.0.0.1', 'peer.host')
-    test:isnumber(r.port, 'peer.port')
+    -- request.peer is not supported in NGINX TSGI
+    if is_builtin_test() then
+        router:route({ path = '/info' }, function(cx)
+                return cx:render({ json = cx.peer })
+        end)
+        local r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
+        test:is(r.host, '127.0.0.1', 'peer.host')
+        test:isnumber(r.port, 'peer.port')
+    else
+        test:ok(true, 'peer.host - ignore on NGINX')
+        test:ok(true, 'peer.port - ignore on NGINX')
+    end
 
     local r = router:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
         function(tx)
@@ -468,31 +503,34 @@ test:test("server requests", function(test)
         test:is(parsed_body.read_cached, 'hello mister', 'non-json req:read_cached()')
     end)
 
-    assert(false)
 
-    test:test('post body', function(test)
-        test:plan(2)
-        router:route({ path = '/post', method = 'POST'}, function(req)
-           local t = {
-                #req:read("\n");
-                #req:read(10);
-                #req:read({ size = 10, delimiter = "\n"});
-                #req:read("\n");
-                #req:read();
-                #req:read();
-                #req:read();
-            }
-            return req:render({json = t})
-        end)
-        local bodyf = os.getenv('LUA_SOURCE_DIR') or './'
-        bodyf = io.open(fio.pathjoin(bodyf, 'test/public/lorem.txt'))
-        local body = bodyf:read('*a')
-        bodyf:close()
-        local r = http_client.post('http://127.0.0.1:12345/post', body)
-        test:is(r.status, 200, 'status')
-        test:is_deeply(json.decode(r.body), { 541,10,10,458,1375,0,0 },
-            'req:read() results')
-        end)
+    if is_builtin_test() then
+        test:test('post body', function(test)
+            test:plan(2)
+            router:route({ path = '/post', method = 'POST'}, function(req)
+              local t = {
+                    #req:read("\n");
+                    #req:read(10);
+                    #req:read({ size = 10, delimiter = "\n"});
+                    #req:read("\n");
+                    #req:read();
+                    #req:read();
+                    #req:read();
+                }
+                return req:render({json = t})
+            end)
+            local bodyf = os.getenv('LUA_SOURCE_DIR') or './'
+            bodyf = io.open(fio.pathjoin(bodyf, 'test/public/lorem.txt'))
+            local body = bodyf:read('*a')
+            bodyf:close()
+            local r = http_client.post('http://127.0.0.1:12345/post', body)
+            test:is(r.status, 200, 'status')
+            test:is_deeply(json.decode(r.body), { 541,10,10,458,1375,0,0 },
+                'req:read() results')
+            end)
+    else
+        test:ok(true, 'post body - ignore on NGINX')
+    end
 
     httpd:stop()
 end)
