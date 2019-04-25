@@ -208,11 +208,12 @@ end
 * `req.headers` - normalized request headers. A normalized header
   is in the lower case, all headers joined together into a single string.
 * `req.peer` - a Lua table with information about the remote peer
-  (like `socket:peer()`).
+  (like `socket:peer()`). **NOTE**: not available when using NGINX TSGI
+  adapter.
 * `tostring(req)` - returns a string representation of the request.
 * `req:request_line()` - returns the request body.
 * `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - reads the
-  raw request body as a stream (see `socket:read()`). **NOTE**: When using
+  raw request body as a stream (see `socket:read()`). **NOTE**: when using
   NGINX TSGI adapter, only `req:read(chunk)` is available.
 * `req:json()` - returns a Lua table from a JSON request.
 * `req:post_param(name)` - returns a single POST request a parameter value.

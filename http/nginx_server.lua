@@ -91,11 +91,6 @@ local function make_env(server, req)
         ['QUERY_STRING'] = query_string,
         ['SERVER_PROTOCOL'] = req.proto,
 
-        [tsgi.KEY_PEER] = {
-            host = server.host,
-            port = server.port,
-        },
-
         [KEY_BODY] = body,            -- http body string; used in `tsgi_input_read`
     }
 
@@ -204,6 +199,8 @@ local function new(opts)
         port = 'number',
         tnt_method = 'string',
         display_errors = '?boolean',
+        log_errors = '?boolean',
+        log_requests = '?boolean',
     })
 
     local self = {
@@ -211,6 +208,8 @@ local function new(opts)
         port = opts.port,
         tnt_method = opts.tnt_method,
         display_errors = opts.display_errors or true,
+        log_errors = opts.log_errors or true,
+        log_requests = opts.log_requests or true,
 
         set_router = ngxserver_set_router,
         start = ngxserver_start,
