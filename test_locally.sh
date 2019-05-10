@@ -1,3 +1,5 @@
+set -e
+
 echo "Builtin server"
 echo "--------------------"
 echo ""
