@@ -1,5 +1,7 @@
 -- TSGI helper functions
 
+local utils = require('http.utils')
+
 local KEY_HTTPD = 'tarantool.http.httpd'
 local KEY_SOCK = 'tarantool.http.sock'
 local KEY_REMAINING = 'tarantool.http.sock_remaining_len'
@@ -17,6 +19,33 @@ local function headers(env)
     return map
 end
 
+local function serialize_request(env)
+    -- {{{
+    -- TODO: copypaste from router/request.lua.
+    -- maybe move it to tsgi.lua.
+
+    local res = env['PATH_INFO']
+    local query_string = env['QUERY_STRING']
+    if query_string ~= nil and query_string ~= '' then
+        res = res .. '?' .. query_string
+    end
+
+    res = utils.sprintf("%s %s %s",
+                        env['REQUEST_METHOD'],
+                        res,
+                        env['SERVER_PROTOCOL'] or 'HTTP/?')
+    res = res .. "\r\n"
+    -- }}} end of request_line copypaste
+
+    for hn, hv in pairs(headers(env)) do
+        res = utils.sprintf("%s%s: %s\r\n", res, utils.ucfirst(hn), hv)
+    end
+
+    -- return utils.sprintf("%s\r\n%s", res, self:read_cached())
+    -- NOTE: no body is logged.
+    return res
+end
+
 return {
     KEY_HTTPD = KEY_HTTPD,
     KEY_SOCK = KEY_SOCK,
@@ -25,4 +54,5 @@ return {
     KEY_PEER = KEY_PEER,
 
     headers = headers,
+    serialize_request = serialize_request,
 }

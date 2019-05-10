@@ -1,5 +1,4 @@
 local tsgi = require('http.tsgi')
-local utils = require('http.utils')
 
 require('checks')
 local json = require('json')
@@ -32,33 +31,6 @@ end
 
 local function tsgi_input_rewind(self)
     self._pos = 0
-end
-
-local function serialize_request(env)
-    -- {{{
-    -- TODO: copypaste from router/request.lua.
-    -- maybe move it to tsgi.lua.
-
-    local res = env['PATH_INFO']
-    local query_string = env['QUERY_STRING']
-    if query_string ~= nil and query_string ~= '' then
-        res = res .. '?' .. query_string
-    end
-
-    res = utils.sprintf("%s %s %s",
-                        env['REQUEST_METHOD'],
-                        res,
-                        env['SERVER_PROTOCOL'] or 'HTTP/?')
-    res = res .. "\r\n"
-    -- }}} end of request_line copypaste
-
-    for hn, hv in pairs(tsgi.headers(env)) do
-        res = utils.sprintf("%s%s: %s\r\n", res, utils.ucfirst(hn), hv)
-    end
-
-    -- return utils.sprintf("%s\r\n%s", res, self:read_cached())
-    -- NOTE: no body is logged.
-    return res
 end
 
 local function make_env(server, req)
@@ -139,14 +111,14 @@ local function generic_entrypoint(server, req, ...) -- luacheck: ignore
         -- TODO: copypaste
         -- TODO: env could be changed. we need to save a copy of it
         log.error('unhandled error: %s\n%s\nrequest:\n%s',
-                 tostring(resp), trace, serialize_request(env))
+                 tostring(resp), trace, tsgi.serialize_request(env))
 
         if server.display_errors then
             body =
                 "Unhandled error: " .. tostring(resp) .. "\n"
                 .. trace .. "\n\n"
                 .. "\n\nRequest:\n"
-                .. serialize_request(env)
+                .. tsgi.serialize_request(env)
         else
             body = "Internal Error"
         end
