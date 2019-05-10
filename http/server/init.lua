@@ -1,9 +1,10 @@
-local lib = require('http.lib')
+local tsgi_adapter = require('http.server.tsgi_adapter')
+
 local tsgi = require('http.tsgi')
+local lib = require('http.lib')
 local utils = require('http.utils')
 
 local log = require('log')
-
 local socket = require('socket')
 local errno = require('errno')
 
@@ -46,7 +47,7 @@ end
 local function serialize_request(env)
     -- {{{
     -- TODO: copypaste from router/request.lua.
-    -- maybe move it to tsgi.lua.
+    -- maybe move it to tsgi_adapter.lua.
 
     local res = env['PATH_INFO']
     local query_string = env['QUERY_STRING']
@@ -109,7 +110,7 @@ local function process_client(self, s, peer)
             break
         end
 
-        local env = tsgi.make_env({
+        local env = tsgi_adapter.make_env({
             parsed_request = p,
             sock = s,
             httpd = self,

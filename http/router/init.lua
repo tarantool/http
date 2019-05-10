@@ -1,8 +1,8 @@
--- http.server
-
 local fs = require('http.router.fs')
 local request_metatable = require('http.router.request').metatable
+
 local utils = require('http.utils')
+local tsgi = require('http.tsgi')
 
 local function uri_file_extension(s, default)
     -- cut from last dot till the end
@@ -22,8 +22,6 @@ local function request_from_env(env, router)  -- luacheck: ignore
     -- TODO: khm... what if we have nginx tsgi?
     -- we need to restrict ourselves to generic TSGI
     -- methods and properties!
-
-    local tsgi = require('http.tsgi')
 
     local request = {
         router = router,

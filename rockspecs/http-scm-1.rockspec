@@ -27,7 +27,9 @@ build = {
                 "$(TARANTOOL_INCDIR)"
             }
         },
-        ['http.server'] = 'http/server.lua',
+        ['http.server'] = 'http/server/init.lua',
+        ['http.server.tsgi_adapter'] = 'http/server/tsgi_adapter.lua',
+        ['http.nginx_server'] = 'http/nginx_server/init.lua',
         ['http.router.fs'] = 'http/router/fs.lua',
         ['http.router.request'] = 'http/router/request.lua',
         ['http.router.response'] = 'http/router/response.lua',
