@@ -1,5 +1,6 @@
 local tsgi = require('http.tsgi')
 
+require('checks')
 local log = require('log')
 
 
