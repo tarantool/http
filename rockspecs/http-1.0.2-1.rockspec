@@ -2,7 +2,7 @@ package = 'http'
 version = '1.0.2-1'
 source  = {
     url = 'git://github.com/get-net/http.git',
-    branch = 'cookie_fix'
+    branch = 'cookie_fix',
     tag = 'cookie_fix',
 }
 description = {
