@@ -279,7 +279,7 @@ local function setcookie(resp, cookie)
 
     local str = sprintf('%s=%s', name, uri_escape(value))
     if cookie.path ~= nil then
-        str = sprintf('%s;path=%s', str, uri_escape(cookie.path))
+        str = sprintf('%s;path=%s', str, cookie.path)
     end
     if cookie.domain ~= nil then
         str = sprintf('%s;domain=%s', str, cookie.domain)
@@ -635,7 +635,11 @@ end
 
 local function handler(self, request)
     if self.hooks.before_dispatch ~= nil then
-        self.hooks.before_dispatch(self, request)
+        local resp = self.hooks.before_dispatch(self, request)
+
+        if resp then
+            return resp
+        end
     end
 
     local format = 'html'
