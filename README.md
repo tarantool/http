@@ -208,8 +208,10 @@ end
 * `req.headers` - normalized request headers. A normalized header
   is in the lower case, all headers joined together into a single string.
 * `req.peer` - a Lua table with information about the remote peer
-  (like `socket:peer()`). **NOTE**: not available when using NGINX TSGI
-  adapter.
+  (like `socket:peer()`).
+  **NOTE**: when router is being used with
+  nginx adapter, `req.peer` contains information on iproto connection with
+  nginx, not the original HTTP user-agent.
 * `tostring(req)` - returns a string representation of the request.
 * `req:request_line()` - returns the request body.
 * `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - reads the

@@ -318,18 +318,12 @@ test:test("server requests", function(test)
     test:is(r.status, 500, 'die 500')
     --test:is(r.reason, 'Internal server error', 'die reason')
 
-    -- request.peer is not supported in NGINX TSGI
-    if is_builtin_test() then
-        router:route({ path = '/info' }, function(cx)
-                return cx:render({ json = cx.peer })
-        end)
-        local r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
-        test:is(r.host, '127.0.0.1', 'peer.host')
-        test:isnumber(r.port, 'peer.port')
-    else
-        test:ok(true, 'peer.host - ignore on NGINX')
-        test:ok(true, 'peer.port - ignore on NGINX')
-    end
+    router:route({ path = '/info' }, function(cx)
+            return cx:render({ json = cx.peer })
+    end)
+    local r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
+    test:is(r.host, '127.0.0.1', 'peer.host')
+    test:isnumber(r.port, 'peer.port')
 
     local r = router:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
         function(tx)

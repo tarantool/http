@@ -26,7 +26,7 @@ local function request_from_env(env, router)  -- luacheck: ignore
     local request = {
         router = router,
         env = env,
-        peer = env[tsgi.KEY_PEER],       -- only for builtin server
+        peer = env[tsgi.KEY_PEER],
         method = env['REQUEST_METHOD'],
         path = env['PATH_INFO'],
         query = env['QUERY_STRING'],

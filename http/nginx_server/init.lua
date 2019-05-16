@@ -43,6 +43,10 @@ local function make_env(server, req)
         body = json.decode(req.body).params
     end
 
+    local hostport = box.session.peer(box.session.id())  -- luacheck: ignore
+    local hostport_parts = string.split(hostport, ':')   -- luacheck: ignore
+    local peer_host, peer_port = hostport_parts[1], tonumber(hostport_parts[2])
+
     local env = {
         ['tsgi.version'] = '1',
         ['tsgi.url_scheme'] = 'http',     -- no support for https
@@ -62,6 +66,13 @@ local function make_env(server, req)
         ['PATH_INFO'] = path_info,
         ['QUERY_STRING'] = query_string,
         ['SERVER_PROTOCOL'] = req.proto,
+        [tsgi.KEY_PEER] = {
+            host = peer_host,
+            port = peer_port,
+            family = 'AF_INET',
+            type = 'SOCK_STREAM',
+            protocol = 'tcp',
+        },
 
         [KEY_BODY] = body,            -- http body string; used in `tsgi_input_read`
     }
