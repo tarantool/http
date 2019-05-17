@@ -6,7 +6,7 @@ source  = {
 }
 description = {
     summary  = 'HTTP server for Tarantool',
-    homepage = 'https://github.com/get-net/http/',
+    homepage = 'https://github.com/tarantool/http/',
     license  = 'BSD',
 }
 dependencies = {
