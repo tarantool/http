@@ -635,11 +635,7 @@ end
 
 local function handler(self, request)
     if self.hooks.before_dispatch ~= nil then
-        local resp = self.hooks.before_dispatch(self, request)
-
-        if resp then
-            return resp
-        end
+        self.hooks.before_dispatch(self, request)
     end
 
     local format = 'html'

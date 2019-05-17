@@ -1,9 +1,8 @@
 package = 'http'
 version = '1.0.1-1'
 source  = {
-    url = 'git://github.com/get-net/http.git',
-    branch = 'cookie_fix',
-    tag = 'cookie_fix',
+    url = 'git://github.com/tarantool/http.git',
+    tag = '1.0.1',
 }
 description = {
     summary  = 'HTTP server for Tarantool',
