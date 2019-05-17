@@ -5,7 +5,7 @@ source  = {
     tag = '1.0.1',
 }
 description = {
-    summary  = 'HTTP server for Tarantool',
+    summary  = "HTTP server for Tarantool",
     homepage = 'https://github.com/tarantool/http/',
     license  = 'BSD',
 }
