@@ -286,7 +286,7 @@ local function setcookie(resp, cookie)
     end
 
     if cookie.expires ~= nil then
-        str = sprintf('%s;expires="%s"', str, expires_str(cookie.expires))
+        str = sprintf('%s;expires=%s', str, expires_str(cookie.expires))
     end
 
     if not resp.headers then
