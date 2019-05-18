@@ -5,9 +5,31 @@ local fio = require('fio')
 local http_lib = require('http.lib')
 local http_client = require('http.client')
 local http_server = require('http.server')
+local ngx_server = require('http.nginx_server')
+local http_router = require('http.router')
 local json = require('json')
-local yaml = require 'yaml'
 local urilib = require('uri')
+
+-- fix tap and http logs interleaving.
+--
+-- tap module writes to stdout,
+-- http-server logs to stderr.
+-- this results in non-synchronized output.
+--
+-- somehow redirecting stdout to stderr doesn't
+-- remove buffering of tap logs (at least on OSX).
+-- Monkeypatching to the rescue!
+
+local orig_iowrite = io.write
+package.loaded['io'].write = function(...)
+    orig_iowrite(...)
+    io.flush()
+end
+
+box.cfg{listen = '127.0.0.1:3301'}  -- luacheck: ignore
+box.schema.user.grant(              -- luacheck: ignore
+    'guest', 'read,write,execute', 'universe', nil, {if_not_exists = true}
+)
 
 local test = tap.test("http")
 test:plan(7)
@@ -42,7 +64,7 @@ test:test("split_uri", function(test)
         query = 'query'})
     check('https://google.com:443/abc?query', { scheme = 'https',
         host = 'google.com', service = '443', path = '/abc', query = 'query'})
-end)
+    end)
 
 test:test("template", function(test)
     test:plan(5)
@@ -128,11 +150,41 @@ test:test('params', function(test)
         {a = { 'b', '1' }, b = 'cde'}, 'array')
 end)
 
+local function is_nginx_test()
+    local server_type = os.getenv('SERVER_TYPE') or 'builtin'
+    return server_type:lower() == 'nginx'
+end
+
+local function is_builtin_test()
+    return not is_nginx_test()
+end
+
+local function choose_server()
+    if is_nginx_test() then
+        -- host and port are for SERVER_NAME, SERVER_PORT only.
+        -- TODO: are they required?
+
+        return ngx_server.new({
+            host = '127.0.0.1',
+            port = 12345,
+            tnt_method = 'nginx_entrypoint',
+            log_requests = false,
+            log_errors = false,
+        })
+    end
+
+    return http_server.new('127.0.0.1', 12345, {
+        log_requests = false,
+        log_errors = false
+    })
+end
+
 local function cfgserv()
     local path = os.getenv('LUA_SOURCE_DIR') or './'
     path = fio.pathjoin(path, 'test')
-    local httpd = http_server.new('127.0.0.1', 12345, { app_dir = path,
-        log_requests = false, log_errors = false })
+
+    local httpd = choose_server()
+    local router = http_router.new(httpd, {app_dir = path})
         :route({path = '/abc/:cde/:def', name = 'test'}, function() end)
         :route({path = '/abc'}, function() end)
         :route({path = '/ctxaction'}, 'module.controller#action')
@@ -147,61 +199,62 @@ local function cfgserv()
         :helper('helper_title', function(self, a) return 'Hello, ' .. a end)
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
-            function(cx) return cx:render({ title = 'title: 123' }) end)
-    return httpd
+                function(cx) return cx:render({ title = 'title: 123' }) end)
+    return httpd, router
 end
 
 test:test("server url match", function(test)
     test:plan(18)
-    local httpd = cfgserv()
+    local httpd, router = cfgserv()
     test:istable(httpd, "httpd object")
-    test:isnil(httpd:match('GET', '/'))
-    test:is(httpd:match('GET', '/abc').endpoint.path, "/abc", "/abc")
-    test:is(#httpd:match('GET', '/abc').stash, 0, "/abc")
-    test:is(httpd:match('GET', '/abc/123').endpoint.path, "/abc/:cde", "/abc/123")
-    test:is(httpd:match('GET', '/abc/123').stash.cde, "123", "/abc/123")
-    test:is(httpd:match('GET', '/abc/123/122').endpoint.path, "/abc/:cde/:def",
+    test:isnil(router:match('GET', '/'))
+    test:is(router:match('GET', '/abc').endpoint.path, "/abc", "/abc")
+    test:is(#router:match('GET', '/abc').stash, 0, "/abc")
+    test:is(router:match('GET', '/abc/123').endpoint.path, "/abc/:cde", "/abc/123")
+    test:is(router:match('GET', '/abc/123').stash.cde, "123", "/abc/123")
+    test:is(router:match('GET', '/abc/123/122').endpoint.path, "/abc/:cde/:def",
         "/abc/123/122")
-    test:is(httpd:match('GET', '/abc/123/122').stash.def, "122",
+    test:is(router:match('GET', '/abc/123/122').stash.def, "122",
         "/abc/123/122")
-    test:is(httpd:match('GET', '/abc/123/122').stash.cde, "123",
+    test:is(router:match('GET', '/abc/123/122').stash.cde, "123",
         "/abc/123/122")
-    test:is(httpd:match('GET', '/abc_123-122').endpoint.path, "/abc_:cde_def",
+    test:is(router:match('GET', '/abc_123-122').endpoint.path, "/abc_:cde_def",
         "/abc_123-122")
-    test:is(httpd:match('GET', '/abc_123-122').stash.cde_def, "123-122",
+    test:is(router:match('GET', '/abc_123-122').stash.cde_def, "123-122",
         "/abc_123-122")
-    test:is(httpd:match('GET', '/abc-123-def').endpoint.path, "/abc-:cde-def",
+    test:is(router:match('GET', '/abc-123-def').endpoint.path, "/abc-:cde-def",
         "/abc-123-def")
-    test:is(httpd:match('GET', '/abc-123-def').stash.cde, "123",
+    test:is(router:match('GET', '/abc-123-def').stash.cde, "123",
         "/abc-123-def")
-    test:is(httpd:match('GET', '/aba-123-dea/1/2/3').endpoint.path,
+    test:is(router:match('GET', '/aba-123-dea/1/2/3').endpoint.path,
         "/aba*def", '/aba-123-dea/1/2/3')
-    test:is(httpd:match('GET', '/aba-123-dea/1/2/3').stash.def,
+    test:is(router:match('GET', '/aba-123-dea/1/2/3').stash.def,
         "-123-dea/1/2/3", '/aba-123-dea/1/2/3')
-    test:is(httpd:match('GET', '/abb-123-dea/1/2/3/cde').endpoint.path,
+    test:is(router:match('GET', '/abb-123-dea/1/2/3/cde').endpoint.path,
         "/abb*def/cde", '/abb-123-dea/1/2/3/cde')
-    test:is(httpd:match('GET', '/abb-123-dea/1/2/3/cde').stash.def,
+    test:is(router:match('GET', '/abb-123-dea/1/2/3/cde').stash.def,
         "-123-dea/1/2/3", '/abb-123-dea/1/2/3/cde')
-    test:is(httpd:match('GET', '/banners/1wulc.z8kiy.6p5e3').stash.token,
+    test:is(router:match('GET', '/banners/1wulc.z8kiy.6p5e3').stash.token,
         '1wulc.z8kiy.6p5e3', "stash with dots")
 end)
 
+
 test:test("server url_for", function(test)
     test:plan(5)
-    local httpd = cfgserv()
-    test:is(httpd:url_for('abcdef'), '/abcdef', '/abcdef')
-    test:is(httpd:url_for('test'), '/abc//', '/abc//')
-    test:is(httpd:url_for('test', { cde = 'cde_v', def = 'def_v' }),
+    local httpd, router = cfgserv()
+    test:is(router:url_for('abcdef'), '/abcdef', '/abcdef')
+    test:is(router:url_for('test'), '/abc//', '/abc//')
+    test:is(router:url_for('test', { cde = 'cde_v', def = 'def_v' }),
         '/abc/cde_v/def_v', '/abc/cde_v/def_v')
-    test:is(httpd:url_for('star', { def = '/def_v' }),
+    test:is(router:url_for('star', { def = '/def_v' }),
         '/abb/def_v/cde', '/abb/def_v/cde')
-    test:is(httpd:url_for('star', { def = '/def_v' }, { a = 'b', c = 'd' }),
+    test:is(router:url_for('star', { def = '/def_v' }, { a = 'b', c = 'd' }),
         '/abb/def_v/cde?a=b&c=d', '/abb/def_v/cde?a=b&c=d')
 end)
 
 test:test("server requests", function(test)
-    test:plan(36)
-    local httpd = cfgserv()
+    test:plan(38)
+    local httpd, router = cfgserv()
     httpd:start()
 
     local r = http_client.get('http://127.0.0.1:12345/test')
@@ -258,54 +311,54 @@ test:test("server requests", function(test)
     test:is(r.reason, 'Ok', 'helper?abc reason')
     test:is(string.match(r.body, 'Hello, world'), 'Hello, world', 'helper body')
 
-    httpd:route({path = '/die', file = 'helper.html.el'},
+    router:route({path = '/die', file = 'helper.html.el'},
         function() error(123) end )
 
     local r = http_client.get('http://127.0.0.1:12345/die')
     test:is(r.status, 500, 'die 500')
     --test:is(r.reason, 'Internal server error', 'die reason')
 
-    httpd:route({ path = '/info' }, function(cx)
-        return cx:render({ json = cx.peer })
+    router:route({ path = '/info' }, function(cx)
+            return cx:render({ json = cx.peer })
     end)
     local r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
     test:is(r.host, '127.0.0.1', 'peer.host')
     test:isnumber(r.port, 'peer.port')
 
-    local r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
+    local r = router:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
         function(tx)
             return tx:render({text = 'POST = ' .. tx:read()})
         end)
     test:istable(r, ':route')
 
-
     test:test('GET/POST at one route', function(test)
         test:plan(8)
 
-        r = httpd:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
+        r = router:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
             function(tx)
                 return tx:render({text = 'POST = ' .. tx:read()})
             end)
         test:istable(r, 'add POST method')
 
-        r = httpd:route({method = 'GET', path = '/dit', file = 'helper.html.el'},
+        r = router:route({method = 'GET', path = '/dit', file = 'helper.html.el'},
             function(tx)
                 return tx:render({text = 'GET = ' .. tx:read()})
             end )
         test:istable(r, 'add GET method')
 
-        r = httpd:route({method = 'DELETE', path = '/dit', file = 'helper.html.el'},
+        r = router:route({method = 'DELETE', path = '/dit', file = 'helper.html.el'},
             function(tx)
                 return tx:render({text = 'DELETE = ' .. tx:read()})
             end )
         test:istable(r, 'add DELETE method')
 
-        r = httpd:route({method = 'PATCH', path = '/dit', file = 'helper.html.el'},
+        r = router:route({method = 'PATCH', path = '/dit', file = 'helper.html.el'},
             function(tx)
                 return tx:render({text = 'PATCH = ' .. tx:read()})
             end )
         test:istable(r, 'add PATCH method')
 
+        -- TODO
         r = http_client.request('POST', 'http://127.0.0.1:12345/dit', 'test')
         test:is(r.body, 'POST = test', 'POST reply')
 
@@ -319,7 +372,7 @@ test:test("server requests", function(test)
         test:is(r.body, 'PATCH = test2', 'PATCH reply')
     end)
 
-    httpd:route({path = '/chunked'}, function(self)
+    router:route({path = '/chunked'}, function(self)
         return self:iterate(ipairs({'chunked', 'encoding', 't\r\nest'}))
     end)
 
@@ -331,7 +384,7 @@ test:test("server requests", function(test)
 
     test:test('get cookie', function(test)
         test:plan(2)
-        httpd:route({path = '/receive_cookie'}, function(req)
+        router:route({path = '/receive_cookie'}, function(req)
             local foo = req:cookie('foo')
             local baz = req:cookie('baz')
             return req:render({
@@ -349,7 +402,7 @@ test:test("server requests", function(test)
 
     test:test('cookie', function(test)
         test:plan(2)
-        httpd:route({path = '/cookie'}, function(req)
+        router:route({path = '/cookie'}, function(req)
             local resp = req:render({text = ''})
             resp:setcookie({ name = 'test', value = 'tost',
                 expires = '+1y', path = '/abc' })
@@ -361,29 +414,117 @@ test:test("server requests", function(test)
         test:ok(r.headers['set-cookie'] ~= nil, "header")
     end)
 
-    test:test('post body', function(test)
-        test:plan(2)
-        httpd:route({ path = '/post', method = 'POST'}, function(req)
-           local t = {
-                #req:read("\n");
-                #req:read(10);
-                #req:read({ size = 10, delimiter = "\n"});
-                #req:read("\n");
-                #req:read();
-                #req:read();
-                #req:read();
+    test:test('request object with GET method', function(test)
+        test:plan(7)
+        router:route({path = '/check_req_properties'}, function(req)
+            return {
+                headers = {},
+                body = json.encode({
+                        headers = req.headers,
+                        method = req.method,
+                        path = req.path,
+                        query = req.query,
+                        proto = req.proto,
+                        query_param_bar = req:query_param('bar'),
+                }),
+                status = 200,
             }
-            return req:render({json = t})
         end)
-        local bodyf = os.getenv('LUA_SOURCE_DIR') or './'
-        bodyf = io.open(fio.pathjoin(bodyf, 'test/public/lorem.txt'))
-        local body = bodyf:read('*a')
-        bodyf:close()
-        local r = http_client.post('http://127.0.0.1:12345/post', body)
+        local r = http_client.get(
+            'http://127.0.0.1:12345/check_req_properties?foo=1&bar=2', {
+            headers = {
+                ['X-test-header'] = 'test-value'
+            }
+        })
         test:is(r.status, 200, 'status')
-        test:is_deeply(json.decode(r.body), { 541,10,10,458,1375,0,0 },
-            'req:read() results')
+
+        local parsed_body = json.decode(r.body)
+        test:is(parsed_body.headers['x-test-header'], 'test-value', 'req.headers')
+        test:is(parsed_body.method, 'GET', 'req.method')
+        test:is(parsed_body.path, '/check_req_properties', 'req.path')
+        test:is(parsed_body.query, 'foo=1&bar=2', 'req.query')
+        test:is(parsed_body.query_param_bar, '2', 'req:query_param()')
+        test:is_deeply(parsed_body.proto, {1, 1}, 'req.proto')
     end)
+
+    test:test('request object methods', function(test)
+        test:plan(7)
+        router:route({path = '/check_req_methods_for_json', method = 'POST'}, function(req)
+            return {
+                headers = {},
+                body = json.encode({
+                        request_line = req:request_line(),
+                        read_cached = req:read_cached(),
+                        json = req:json(),
+                        post_param_for_kind = req:post_param('kind'),
+                }),
+                status = 200,
+            }
+        end)
+        router:route({path = '/check_req_methods', method = 'POST'}, function(req)
+                return {
+                    headers = {},
+                    body = json.encode({
+                            request_line = req:request_line(),
+                            read_cached = req:read_cached(),
+                    }),
+                    status = 200,
+                }
+        end)
+
+        r = http_client.post(
+            'http://127.0.0.1:12345/check_req_methods_for_json',
+            '{"kind": "json"}', {
+            headers = {
+                ['Content-type'] = 'application/json',
+                ['X-test-header'] = 'test-value'
+            }
+        })
+        test:is(r.status, 200, 'status')
+
+        local parsed_body = json.decode(r.body)
+        test:is(parsed_body.request_line, 'POST /check_req_methods_for_json HTTP/1.1', 'req.request_line')
+        test:is(parsed_body.read_cached, '{"kind": "json"}', 'json req:read_cached()')
+        test:is_deeply(parsed_body.json, {kind = "json"}, 'req:json()')
+        test:is(parsed_body.post_param_for_kind, "json", 'req:post_param()')
+
+        r = http_client.post(
+            'http://127.0.0.1:12345/check_req_methods',
+            'hello mister'
+        )
+        test:is(r.status, 200, 'status')
+        parsed_body = json.decode(r.body)
+        test:is(parsed_body.read_cached, 'hello mister', 'non-json req:read_cached()')
+    end)
+
+
+    if is_builtin_test() then
+        test:test('post body', function(test)
+            test:plan(2)
+            router:route({ path = '/post', method = 'POST'}, function(req)
+              local t = {
+                    #req:read("\n");
+                    #req:read(10);
+                    #req:read({ size = 10, delimiter = "\n"});
+                    #req:read("\n");
+                    #req:read();
+                    #req:read();
+                    #req:read();
+                }
+                return req:render({json = t})
+            end)
+            local bodyf = os.getenv('LUA_SOURCE_DIR') or './'
+            bodyf = io.open(fio.pathjoin(bodyf, 'test/public/lorem.txt'))
+            local body = bodyf:read('*a')
+            bodyf:close()
+            local r = http_client.post('http://127.0.0.1:12345/post', body)
+            test:is(r.status, 200, 'status')
+            test:is_deeply(json.decode(r.body), { 541,10,10,458,1375,0,0 },
+                'req:read() results')
+            end)
+    else
+        test:ok(true, 'post body - ignore on NGINX')
+    end
 
     httpd:stop()
 end)

@@ -209,10 +209,14 @@ end
   is in the lower case, all headers joined together into a single string.
 * `req.peer` - a Lua table with information about the remote peer
   (like `socket:peer()`).
+  **NOTE**: when router is being used with
+  nginx adapter, `req.peer` contains information on iproto connection with
+  nginx, not the original HTTP user-agent.
 * `tostring(req)` - returns a string representation of the request.
 * `req:request_line()` - returns the request body.
 * `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - reads the
-  raw request body as a stream (see `socket:read()`).
+  raw request body as a stream (see `socket:read()`). **NOTE**: when using
+  NGINX TSGI adapter, only `req:read(chunk)` is available.
 * `req:json()` - returns a Lua table from a JSON request.
 * `req:post_param(name)` - returns a single POST request a parameter value.
   If `name` is `nil`, returns all parameters as a Lua table.
