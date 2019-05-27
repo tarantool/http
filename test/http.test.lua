@@ -184,7 +184,7 @@ local function cfgserv()
     path = fio.pathjoin(path, 'test')
 
     local httpd = choose_server()
-    local router = http_router.new(httpd, {app_dir = path})
+    local router = http_router.new({app_dir = path})
         :route({path = '/abc/:cde/:def', name = 'test'}, function() end)
         :route({path = '/abc'}, function() end)
         :route({path = '/ctxaction'}, 'module.controller#action')
@@ -200,6 +200,7 @@ local function cfgserv()
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
                 function(cx) return cx:render({ title = 'title: 123' }) end)
+    httpd:set_router(router)
     return httpd, router
 end
 

@@ -318,7 +318,7 @@ local function url_for(self, name, args, query)
 end
 
 local exports = {
-    new = function(httpd, options)
+    new = function(options)
         if options == nil then
             options = {}
         end
@@ -364,11 +364,14 @@ local exports = {
         }
 
         -- make router object itself callable
-        httpd:set_router(function (env)
-            return handler(self, env)
-        end)
-
-        return self
+        --
+        -- BE AWARE:
+        -- 1) router(env) is valid, but
+        -- 2) type(router) == 'table':
+        --
+        return setmetatable(self, {
+            __call = handler,
+        })
     end
 }
 
