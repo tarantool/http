@@ -1,14 +1,6 @@
 local tsgi = require('http.tsgi')
 
 require('checks')
-local log = require('log')
-
-
-local function noop() end
-
-local function tsgi_errors_write(self, msg)  -- luacheck: ignore
-    log.error(msg)
-end
 
 local function tsgi_hijack(env)
     local httpd = env[tsgi.KEY_HTTPD]
@@ -81,10 +73,6 @@ local function make_env(opts)
             read = tsgi_input_read,
             rewind = nil,                  -- non-rewindable by default
         },
-        ['tsgi.errors'] = {
-            write = tsgi_errors_write,
-            flush = noop,                  -- TODO: implement
-        },
         ['tsgi.hijack'] = setmetatable({}, {
             __call = tsgi_hijack,
         }),
@@ -99,7 +87,6 @@ local function make_env(opts)
 
     -- Pass through `env` to env['tsgi.*']:*() functions
     env['tsgi.input']._env = env
-    env['tsgi.errors']._env = env
     env['tsgi.hijack']._env = env
 
     -- set headers
