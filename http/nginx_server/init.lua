@@ -157,7 +157,7 @@ local function generic_entrypoint(server, req, ...) -- luacheck: ignore
 end
 
 local function ngxserver_set_router(self, router)
-    checks('table', 'function')         -- luacheck: ignore
+    checks('table', 'function|table')         -- luacheck: ignore
 
     self.router = router
 end
