@@ -6,8 +6,6 @@ local log = require('log')
 
 local KEY_BODY = 'tsgi.http.nginx_server.body'
 
-local function noop() end
-
 local function convert_headername(name)
     return 'HEADER_' .. string.upper(name)
 end
@@ -55,10 +53,6 @@ local function make_env(server, req)
             read = tsgi_input_read,
             rewind = tsgi_input_rewind,
         },
-        ['tsgi.errors'] = {
-            write = noop,
-            flush = noop,
-        },
         ['tsgi.hijack'] = nil,            -- no support for hijack with nginx
         ['REQUEST_METHOD'] = string.upper(req.method),
         ['SERVER_NAME'] = server.host,
@@ -79,7 +73,6 @@ local function make_env(server, req)
 
     -- Pass through `env` to env['tsgi.*']:read() functions
     env['tsgi.input']._env = env
-    env['tsgi.errors']._env = env
 
     for name, value in pairs(req.headers) do
         env[convert_headername(name)] = value
