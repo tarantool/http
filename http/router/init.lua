@@ -1,4 +1,6 @@
 local fs = require('http.router.fs')
+local middleware = require('http.router.middleware')
+local matching = require('http.router.matching')
 local request_metatable = require('http.router.request').metatable
 
 local utils = require('http.utils')
@@ -50,111 +52,101 @@ local function request_from_env(env, router)  -- luacheck: ignore
     return setmetatable(request, request_metatable)
 end
 
-local function handler(self, env)
+local function main_endpoint_middleware(env)
+    local self = env[tsgi.KEY_ROUTER]
+    local format = uri_file_extension(env['PATH_INFO'], 'html')
+    local r = env[tsgi.KEY_ROUTE]
     local request = request_from_env(env, self)
-
-    if self.hooks.before_dispatch ~= nil then
-        self.hooks.before_dispatch(self, request)
-    end
-
-    local format = uri_file_extension(request.env['PATH_INFO'], 'html')
-
-    -- Try to find matching route,
-    -- if failed, try static file.
-    --
-    -- `r` is route-info (TODO: ???), this is dispatching at its glory
-
-    local r = self:match(request.env['REQUEST_METHOD'], request.env['PATH_INFO'])
     if r == nil then
         return fs.static_file(self, request, format)
     end
-
     local stash = utils.extend(r.stash, { format = format })
-
     request.endpoint = r.endpoint  -- THIS IS ROUTE, BUT IS NAMED `ENDPOINT`! OH-MY-GOD!
     request.tstash   = stash
+    return r.endpoint.handler(request)
+end
 
-    -- execute user-specified request handler
-    local resp = r.endpoint.sub(request)
-
-    if self.hooks.after_dispatch ~= nil then
-        self.hooks.after_dispatch(request, resp)
+local function populate_chain_with_middleware(env, middleware_obj)
+    local filter = matching.transform_filter({
+            path = env['PATH_INFO'],
+            method = env['REQUEST_METHOD']
+    })
+    for _, m in pairs(middleware_obj:ordered()) do
+        if matching.matches(m, filter) then
+            tsgi.push_back_handler(env, m.handler)
+        end
     end
-    return resp
+end
+
+local function dispatch_middleware(env)
+    local self = env[tsgi.KEY_ROUTER]
+
+    local r = self:match(env['REQUEST_METHOD'], env['PATH_INFO'])
+    env[tsgi.KEY_ROUTE] = r
+
+    populate_chain_with_middleware(env, self.middleware)
+
+    -- finally, add user specified handler
+    tsgi.push_back_handler(env, main_endpoint_middleware)
+
+    return tsgi.next(env)
+end
+
+local function router_handler(self, env)
+    env[tsgi.KEY_ROUTER] = self
+
+    -- set-up middleware chain
+    tsgi.init_handlers(env)
+
+    populate_chain_with_middleware(env, self.preroute_middleware)
+
+    -- add routing
+    tsgi.push_back_handler(env, dispatch_middleware)
+
+    -- execute middleware chain from first
+    return tsgi.next(env)
 end
 
 -- TODO: `route` is not route, but path...
 local function match_route(self, method, route)
-    -- route must have '/' at the begin and end
-    if string.match(route, '.$') ~= '/' then
-        route = route .. '/'
-    end
-    if string.match(route, '^.') ~= '/' then
-        route = '/' .. route
-    end
+    local filter = matching.transform_filter({
+        method = method,
+        path = route
+    })
 
-    method = string.upper(method)
-
-    local fit
-    local stash = {}
-
-    for k, r in pairs(self.routes) do
-        if r.method == method or r.method == 'ANY' then
-            local m = { string.match(route, r.match)  }
-            local nfit
-            if #m > 0 then
-                if #r.stash > 0 then
-                    if #r.stash == #m then
-                        nfit = r
-                    end
-                else
-                    nfit = r
-                end
-
-                if nfit ~= nil then
-                    if fit == nil then
-                        fit = nfit
-                        stash = m
-                    else
-                        if #fit.stash > #nfit.stash then
-                            fit = nfit
-                            stash = m
-                        elseif r.method ~= fit.method then
-                            if fit.method == 'ANY' then
-                                fit = nfit
-                                stash = m
-                            end
-                        end
-                    end
-                end
-            end
+    local best_match = nil
+    for _, r in pairs(self.routes) do
+        local ok, match = matching.matches(r, filter)
+        if ok and matching.better_than(match, best_match) then
+            best_match = match
         end
     end
 
-    if fit == nil then
-        return fit
+    if best_match == nil or best_match.route == nil then
+        return nil
     end
+
     local resstash = {}
-    for i = 1, #fit.stash do
-        resstash[ fit.stash[ i ] ] = stash[ i ]
+    for i = 1, #best_match.route.stash do
+        resstash[best_match.route.stash[i]] = best_match.stash[i]
     end
-    return  { endpoint = fit, stash = resstash }
+    return {endpoint = best_match.route, stash = resstash}
 end
 
-local function set_helper(self, name, sub)
-    if sub == nil or type(sub) == 'function' then
-        self.helpers[ name ] = sub
+local function set_helper(self, name, handler)
+    if handler == nil or type(handler) == 'function' then
+        self.helpers[ name ] = handler
         return self
     end
-    utils.errorf("Wrong type for helper function: %s", type(sub))
+    utils.errorf("Wrong type for helper function: %s", type(handler))
 end
 
-local function set_hook(self, name, sub)
-    if sub == nil or type(sub) == 'function' then
-        self.hooks[ name ] = sub
+local function set_hook(self, name, handler)
+    if handler == nil or type(handler) == 'function' then
+        self.hooks[ name ] = handler
         return self
     end
-    utils.errorf("Wrong type for hook function: %s", type(sub))
+    utils.errorf("Wrong type for hook function: %s", type(handler))
 end
 
 local function url_for_route(r, args, query)
@@ -198,7 +190,46 @@ local possible_methods = {
     PATCH  = 'PATCH',
 }
 
-local function add_route(self, opts, sub)
+local function use_middleware(self, opts)
+    local opts = table.deepcopy(opts)   -- luacheck: ignore
+
+    if type(opts) ~= 'table' or type(self) ~= 'table' then
+        error("Usage: router:route({ ... }, function(cx) ... end)")
+    end
+
+    assert(type(opts.name) == 'string')
+    assert(type(opts.handler) == 'function')
+
+    opts.path = opts.path or '/.*'
+    assert(type(opts.path) == 'string')
+
+    opts.method = opts.method or 'ANY'
+
+    opts.before = opts.before or {}
+    opts.after = opts.after or {}
+    for _, order_key in ipairs({'before', 'after'}) do
+        local opt = opts[order_key]
+        assert(type(opt) ~= 'string' or type(opt) ~= 'table',
+               ('%s must be a table of strings or a string'):format(order_key))
+        if type(opt) == 'table' then
+            for _, name in ipairs(opt) do
+                local fmt = ('%s of table type, must contain strings, got %s')
+                    :format(order_key, type(opt[name]))
+                assert(type(opt[name]) == 'string', fmt)
+            end
+        end
+    end
+
+    -- helpers for matching and retrieving pattern words
+    opts.match, opts.stash = matching.transform_pattern(opts.path)
+
+    if opts.preroute == true then
+        return self.preroute_middleware:use(opts)
+    end
+    return self.middleware:use(opts)
+end
+
+local function add_route(self, opts, handler)
     if type(opts) ~= 'table' or type(self) ~= 'table' then
         error("Usage: router:route({ ... }, function(cx) ... end)")
     end
@@ -208,21 +239,21 @@ local function add_route(self, opts, sub)
     local ctx
     local action
 
-    if sub == nil then
-        sub = fs.render
-    elseif type(sub) == 'string' then
+    if handler == nil then
+        handler = fs.render
+    elseif type(handler) == 'string' then
 
-        ctx, action = string.match(sub, '(.+)#(.*)')
+        ctx, action = string.match(handler, '(.+)#(.*)')
 
         if ctx == nil or action == nil then
-            utils.errorf("Wrong controller format '%s', must be 'module#action'", sub)
+            utils.errorf("Wrong controller format '%s', must be 'module#action'", handler)
         end
 
-        sub = fs.ctx_action
+        handler = fs.ctx_action
 
-    elseif type(sub) ~= 'function' then
+    elseif type(handler) ~= 'function' then
         utils.errorf("wrong argument: expected function, but received %s",
-            type(sub))
+            type(handler))
     end
 
     opts.method = possible_methods[string.upper(opts.method)] or 'ANY'
@@ -233,55 +264,9 @@ local function add_route(self, opts, sub)
 
     opts.controller = ctx
     opts.action = action
-    opts.match = opts.path
-    opts.match = string.gsub(opts.match, '[-]', "[-]")
 
-    -- convert user-specified route URL to regexp,
-    -- and initialize stashes
-    local estash = {  }
-    local stash = {  }
-    while true do
-        local name = string.match(opts.match, ':([%a_][%w_]*)')
-        if name == nil then
-            break
-        end
-        if estash[name] then
-            utils.errorf("duplicate stash: %s", name)
-        end
-        estash[name] = true
-        opts.match = string.gsub(opts.match, ':[%a_][%w_]*', '([^/]-)', 1)
-
-        table.insert(stash, name)
-    end
-    while true do
-        local name = string.match(opts.match, '[*]([%a_][%w_]*)')
-        if name == nil then
-            break
-        end
-        if estash[name] then
-            utils.errorf("duplicate stash: %s", name)
-        end
-        estash[name] = true
-        opts.match = string.gsub(opts.match, '[*][%a_][%w_]*', '(.-)', 1)
-
-        table.insert(stash, name)
-    end
-
-    -- ensure opts.match is like '^/xxx/$'
-    do
-        if string.match(opts.match, '.$') ~= '/' then
-            opts.match = opts.match .. '/'
-        end
-        if string.match(opts.match, '^.') ~= '/' then
-            opts.match = '/' .. opts.match
-        end
-        opts.match = '^' .. opts.match .. '$'
-    end
-
-    estash = nil
-
-    opts.stash = stash
-    opts.sub = sub
+    opts.match, opts.stash = matching.transform_pattern(opts.path)
+    opts.handler = handler
     opts.url_for = url_for_route
 
     -- register new route in a router
@@ -339,17 +324,20 @@ local exports = {
         local self = {
             options = utils.extend(default, options, true),
 
-            routes  = {  },         -- routes array
-            iroutes = {  },         -- routes by name
-            helpers = {             -- for use in templates
+            routes      = {  },                      -- routes array
+            iroutes     = {  },                      -- routes by name
+            middleware = middleware.new(),           -- new middleware
+            preroute_middleware = middleware.new(),  -- new middleware (preroute)
+            helpers = {                              -- for use in templates
                 url_for = url_for_helper,
             },
-            hooks   = {  },         -- middleware
+            hooks       = {  },                      -- middleware
 
             -- methods
-            route   = add_route,    -- add route
-            helper  = set_helper,   -- for use in templates
-            hook    = set_hook,     -- middleware
+            use     = use_middleware,                -- new middleware
+            route   = add_route,                     -- add route
+            helper  = set_helper,                    -- for use in templates
+            hook    = set_hook,                      -- middleware
             url_for = url_for,
 
             -- private
@@ -370,7 +358,7 @@ local exports = {
         -- 2) type(router) == 'table':
         --
         return setmetatable(self, {
-            __call = handler,
+            __call = router_handler,
         })
     end
 }
