@@ -103,7 +103,7 @@ local function process_client(self, s, peer)
         local status, body
 
         -- DETACHED: dont close socket, but quit processing HTTP
-        if self.is_hijacked then
+        if env[tsgi.KEY_IS_HIJACKED] == true then
             break
         end
 

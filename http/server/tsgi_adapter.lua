@@ -3,10 +3,9 @@ local tsgi = require('http.tsgi')
 require('checks')
 
 local function tsgi_hijack(env)
-    local httpd = env[tsgi.KEY_HTTPD]
-    local sock = env[tsgi.KEY_SOCK]
+    env[tsgi.KEY_IS_HIJACKED] = true
 
-    httpd.is_hijacked = true
+    local sock = env[tsgi.KEY_SOCK]
     return sock
 end
 
@@ -73,9 +72,6 @@ local function make_env(opts)
             read = tsgi_input_read,
             rewind = nil,                  -- non-rewindable by default
         },
-        ['tsgi.hijack'] = setmetatable({}, {
-            __call = tsgi_hijack,
-        }),
 
         ['REQUEST_METHOD'] = p.method,
         ['PATH_INFO'] = p.path,
@@ -87,7 +83,9 @@ local function make_env(opts)
 
     -- Pass through `env` to env['tsgi.*']:*() functions
     env['tsgi.input']._env = env
-    env['tsgi.hijack']._env = env
+    env['tsgi.hijack'] = setmetatable(env, {
+        __call = tsgi_hijack,
+    })
 
     -- set headers
     for name, value in pairs(p.headers) do
