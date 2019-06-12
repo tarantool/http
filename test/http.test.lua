@@ -257,7 +257,7 @@ test:test("server url_for", function(test)
 end)
 
 test:test("server requests", function(test)
-    test:plan(38)
+    test:plan(42)
     local httpd, router = cfgserv()
     httpd:start()
 
@@ -528,6 +528,45 @@ test:test("server requests", function(test)
             end)
     else
         test:ok(true, 'post body - ignore on NGINX')
+    end
+
+    -- hijacking
+    if is_builtin_test() then
+        -- 0. create a route (simplest) in which env:hijack() is called,
+        --    and then do ping-pong.
+        router:route({method = 'POST', path = '/upgrade'}, function(req)
+            local env = req.env
+
+            -- intercept raw socket connection
+            local sock = env['tsgi.hijack']()
+            assert(sock ~= nil, 'hijacked socket is not empty')
+
+            -- receive ping, send pong
+            sock:write('ready')
+            local ping = sock:read(4)
+            assert(ping == 'ping')
+            sock:write('pong')
+        end)
+
+        -- 1. set-up socket
+        local socket = require('socket')
+        local sock = socket.tcp_connect('127.0.0.1', 12345)
+        test:ok(sock ~= nil, 'HTTP client connection established')
+
+        -- 2. over raw-socket send HTTP POST (to get it routed to route)
+        local upgrade_request = 'POST /upgrade HTTP/1.1\r\nConnection: upgrade\r\n\r\n'
+        local bytessent = sock:write(upgrade_request)
+        test:is(bytessent, #upgrade_request, 'upgrade request sent fully')
+
+        -- 3. send ping, receive pong
+        test:is(sock:read(5), 'ready', 'server is ready')
+        sock:write('ping')
+        test:is(sock:read(4), 'pong', 'pong receieved')
+    else
+        test:ok(true, 'HTTP client connection established - ignored on NGINX')
+        test:ok(true, 'upgrade request sent fully - ignored on NGINX')
+        test:ok(true, 'server is ready - ignored on NGINX')
+        test:ok(true, 'pong received - ignored on NGINX')
     end
 
     httpd:stop()
