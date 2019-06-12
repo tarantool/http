@@ -9,6 +9,7 @@ local KEY_PARSED_REQUEST = 'tarantool.http.parsed_request'
 local KEY_PEER = 'tarantool.http.peer'
 local KEY_ROUTE = 'tarantool.http.route'
 local KEY_ROUTER = 'tarantool.http.router'
+local KEY_IS_HIJACKED = 'tarantool.http.server.is_hijacked'
 
 local KEY_MIDDLEWARE_CALLCHAIN_CURRENT = 'tarantool.middleware.callchain_current'
 local KEY_MIDDLEWARE_CALLCHAIN_TABLE = 'tarantool.middleware.callchain_table'
@@ -75,6 +76,7 @@ return {
     KEY_REMAINING = KEY_REMAINING,
     KEY_PARSED_REQUEST = KEY_PARSED_REQUEST,
     KEY_PEER = KEY_PEER,
+    KEY_IS_HIJACKED = KEY_IS_HIJACKED,
 
     headers = headers,
     serialize_request = serialize_request,
