@@ -28,33 +28,26 @@ local function transform_pattern(path)
     local estash = {  }  -- helper table, name -> boolean
     local stash = {  }   -- i -> word
 
-    while true do
-        local name = string.match(match, ':([%a_][%w_]*)')
+    -- when no such pattern is found, returns false
+    local find_and_replace_stash_pattern = function(pattern_regex, replace_with)
+        local name = string.match(match, pattern_regex)
         if name == nil then
-            break
+            return false
         end
         if estash[name] then
             utils.errorf("duplicate stash: %s", name)
         end
         estash[name] = true
-        match = string.gsub(match, ':[%a_][%w_]*', '([^/]-)', 1)
+        match = string.gsub(match, pattern_regex, replace_with, 1)
 
         table.insert(stash, name)
+        return true
     end
 
-    while true do
-        local name = string.match(match, '[*]([%a_][%w_]*)')
-        if name == nil then
-            break
-        end
-        if estash[name] then
-            utils.errorf("duplicate stash: %s", name)
-        end
-        estash[name] = true
-        match = string.gsub(match, '[*][%a_][%w_]*', '(.-)', 1)
-
-        table.insert(stash, name)
-    end
+    -- patterns starting with :
+    while find_and_replace_stash_pattern(':([%a_][%w_]*)', '([^/]-)') do end
+    -- extended patterns starting with *
+    while find_and_replace_stash_pattern('[*]([%a_][%w_]*)', '(.-)') do end
 
     -- ensure match is like '^/xxx/$'
     do
