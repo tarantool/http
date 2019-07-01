@@ -77,9 +77,19 @@ local function matches(r, filter)
         return false
     end
 
+    -- how many symbols were not known (were hidden behind : and * patterns)
+    local symbols_didnt_know = 0
+    for _, matched_part in ipairs(regex_groups_matched) do
+        symbols_didnt_know = symbols_didnt_know + #matched_part
+    end
+
     return true, {
         route = r,
         stash = regex_groups_matched,
+
+        -- the more symbols were known in advance by route,
+        -- the more priority we give the route
+        specificity = -symbols_didnt_know,
     }
 end
 
@@ -91,10 +101,10 @@ local function better_than(newmatch, oldmatch)
         return true
     end
 
-    -- current match (route) is prioritized iff:
-    -- 1. it has less matched words, or
-    -- 2. if current match (route) has more specific method filter
-    if #oldmatch.stash > #newmatch.stash then
+    -- newmatch route is prioritized over oldmatch iff:
+    -- 1. its' path is more specific (see matches() function), or
+    -- 2. if current route has more specific method filter
+    if newmatch.specificity > oldmatch.specificity then
         return true
     end
     return newmatch.route.method ~= oldmatch.route.method and
