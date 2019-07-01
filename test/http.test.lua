@@ -257,7 +257,7 @@ test:test("server url_for", function(test)
 end)
 
 test:test("server requests", function(test)
-    test:plan(42)
+    test:plan(43)
     local httpd, router = cfgserv()
     httpd:start()
 
@@ -501,7 +501,6 @@ test:test("server requests", function(test)
         test:is(parsed_body.read_cached, 'hello mister', 'non-json req:read_cached()')
     end)
 
-
     if is_builtin_test() then
         test:test('post body', function(test)
             test:plan(2)
@@ -568,6 +567,34 @@ test:test("server requests", function(test)
         test:ok(true, 'server is ready - ignored on NGINX')
         test:ok(true, 'pong received - ignored on NGINX')
     end
+
+    test:test('prioritization of more specific routes', function(test)
+        test:plan(4)
+
+        router:route({method = 'GET', path = '*stashname'}, function(_)
+            return {
+                status = 200,
+                body = 'GET *',
+            }
+        end)
+        local r = http_client.get('http://127.0.0.1:12345/a/b/c')
+        test:is(r.status, 200, '/a/b/c request returns 200')
+        test:is(r.body, 'GET *', 'GET * matches')
+
+        router:route({method = 'ANY', path = '/a/:foo/:bar'}, function(_)
+            return {
+                status = 200,
+                body = 'ANY /a/:foo/:bar',
+            }
+        end)
+        local r = http_client.get('http://127.0.0.1:12345/a/b/c')
+        test:is(r.status, 200, '/a/b/c request returns 200')
+        test:is(
+            r.body,
+            'ANY /a/:foo/:bar',
+            '# of stashes matched doesnt matter - only # of known symbols by the route matters'
+        )
+    end)
 
     httpd:stop()
 end)
