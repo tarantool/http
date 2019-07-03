@@ -29,9 +29,10 @@ align="right">
 * [Rendering a template](#rendering-a-template)
 * [Template helpers](#template-helpers)
 * [Hooks](#hooks)
-  * [handler(httpd, req)](#handlerhttpd-req)
-  * [before\_dispatch(httpd, req)](#before_dispatchhttpd-req)
-  * [after\_dispatch(cx, resp)](#after_dispatchcx-resp)
+  * [handler(ctx)](#handlerctx)
+  * [before\_dispatch(ctx)](#before_dispatchctx)
+  * [after\_dispatch(ctx)](#after_dispatchctx)
+* [Hook mapping](#hook-mapping)
 * [See also](#see-also)
 
 ## Prerequisites
@@ -89,9 +90,9 @@ To stop the server, use `httpd:stop()`.
 httpd = require('http.server').new(host, port[, { options } ])
 ```
 
-`host` and `port` must contain:
+`host` and `port` must contain: 
 * For tcp socket: the host and port to bind to.
-* For unix socket: `unix/` and path to socket (for example `/tmp/http-server.sock`) to bind to.
+* For unix socket: `unix/` and path to socket (for example `/tmp/http-server.sock`) to bind to. 
 
 `options` may contain:
 
@@ -146,7 +147,6 @@ httpd:route({ path = '/path/to' }, 'controller#action')
 httpd:route({ path = '/', template = 'Hello <%= var %>' }, handle1)
 httpd:route({ path = '/:abc/cde', file = 'users.html.el' }, handle2)
 httpd:route({ path = '/objects', method = 'GET' }, handle3)
-...
 ```
 
 The first argument for `route()` is a Lua table with one or more keys:
@@ -191,59 +191,64 @@ In that case, the handler body is taken from a file in the
 
 ## Route handlers
 
-A route handler is a function which accepts one argument (**Request**) and
-returns one value (**Response**).
+A route handler is a function which accepts one argument (**Context**) and
+returns response object, which is set inside the **Context** object by the index of **res**.
 
 ```lua
-function my_handler(req)
-    -- req is a Request object
-    -- resp is a Response object
-    local resp = req:render({text = req.method..' '..req.path })
-    resp.headers['x-test-header'] = 'test';
-    resp.status = 201
-    return resp
+function my_handler(self)
+    -- self is a Context object
+    self:render({
+        status = 201,
+        headers = {
+            ['x-test-header'] = 'test'
+        },
+        text = self.req.method..' '..self.req.path
+    })
+
+    -- res object within Context will be handled automatically
 end
 ```
 
-### Fields and methods of the Request object
+### Fields and methods of the Context object
 
-* `req.method` - HTTP request type (`GET`, `POST` etc).
-* `req.path` - request path.
-* `req.query` - request arguments.
-* `req.proto` - HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`).
-* `req.headers` - normalized request headers. A normalized header
+* `ctx.req.body` - request's body
+* `ctx.req.method` - HTTP request type (`GET`, `POST` etc).
+* `ctx.req.path` - request path.
+* `ctx.req.query` - request arguments.
+* `ctx.req.proto` - HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`).
+* `ctx.req.headers` - normalized request headers. A normalized header
   is in the lower case, all headers joined together into a single string.
-* `req.peer` - a Lua table with information about the remote peer
+* `ctx.peer` - a Lua table with information about the remote peer
   (like `socket:peer()`).
-* `tostring(req)` - returns a string representation of the request.
-* `req:request_line()` - returns the request body.
-* `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - reads the
+* `tostring(ctx)` - returns a string representation of the request.
+* `ctx:request_line()` - returns the request body.
+* `ctx:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - reads the
   raw request body as a stream (see `socket:read()`).
-* `req:json()` - returns a Lua table from a JSON request.
-* `req:post_param(name)` - returns a single POST request a parameter value.
+* `ctx:json()` - returns a Lua table from a JSON request.
+* `ctx:post_param(name)` - returns a single POST request a parameter value.
   If `name` is `nil`, returns all parameters as a Lua table.
-* `req:query_param(name)` - returns a single GET request parameter value.
+* `ctx:query_param(name)` - returns a single GET request parameter value.
   If `name` is `nil`, returns a Lua table with all arguments.
-* `req:param(name)` - any request parameter, either GET or POST.
-* `req:cookie(name)` - to get a cookie in the request.
-* `req:stash(name[, value])` - get or set a variable "stashed"
+* `ctx:param(name)` - any request parameter, either GET or POST.
+* `ctx:cookie(name)` - to get a cookie in the request.
+* `ctx:stash(name[, value])` - get or set a variable "stashed"
   when dispatching a route.
-* `req:url_for(name, args, query)` - returns the route's exact URL.
-* `req:render({})` - create a **Response** object with a rendered template.
-* `req:redirect_to` - create a **Response** object with an HTTP redirect.
+* `ctx:url_for(name, args, query)` - returns the route's exact URL.
+* `ctx:render({})` - create a **Response** object with a rendered template.
+* `ctx:redirect_to(name, [args], query)` - create a **Response** object with an HTTP redirect.
 
 ### Fields and methods of the Response object
 
-* `resp.status` - HTTP response code.
-* `resp.headers` - a Lua table with normalized headers.
-* `resp.body` - response body (string|table|wrapped\_iterator).
-* `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'))` -
-  adds `Set-Cookie` headers to `resp.headers`.
+* `ctx.res.status` - HTTP response code.
+* `ctx.res.headers` - a Lua table with normalized headers.
+* `ctx.res.body` - response body (string|table|wrapped\_iterator).
+* `ctx:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'))` -
+  adds `Set-Cookie` headers to `ctx.res.headers`.
 
 ### Examples
 
 ```lua
-function my_handler(req)
+function my_handler(self)
     return {
         status = 200,
         headers = { ['content-type'] = 'text/html; charset=utf8' },
@@ -261,14 +266,15 @@ end
 ```lua
 function hello(self)
     local id = self:stash('id')    -- here is :id value
-    local user = box.space.users:select(id)
-    if user == nil then
-        return self:redirect_to('/users_not_found')
+    local user = box.space.users:get(id)
+    if user then
+        self:redirect_to('/users_not_found')
+        return
     end
-    return self:render({ user = user  })
+    self:render({ user = user })
 end
 
-httpd = box.httpd.new('127.0.0.1', 8080)
+httpd = httpd.new('127.0.0.1', 8080)
 httpd:route(
     { path = '/:id/view', template = 'Hello, <%= user.name %>' }, hello)
 httpd:start()
@@ -291,12 +297,20 @@ To get a cookie, use:
 function show_user(self)
     local uid = self:cookie('id')
 
-    if uid ~= nil and string.match(uid, '^%d$') ~= nil then
-        local user = box.select(users, 0, uid)
-        return self:render({ user = user })
+    if uid and string.match(uid, '^%d$') ~= nil then
+        local user = box.space.users:get(uid)
+
+        if user then
+            self:render({
+                json = {
+                    user = user
+                }
+            })
+            return
+        end
     end
 
-    return self:redirect_to('/login')
+    self:redirect_to('/login')
 end
 ```
 
@@ -304,19 +318,26 @@ To set a cookie, use the `setcookie()` method of a response object and pass to
 it a Lua table defining the cookie to be set:
 
 ```lua
+local sprintf = string.format
 function user_login(self)
     local login = self:param('login')
     local password = self:param('password')
 
-    local user = box.select(users, 1, login, password)
-    if user ~= nil then
-        local resp = self:redirect_to('/')
-        resp:setcookie({ name = 'uid', value = user[0], expires = '+1y' })
-        return resp
+    -- presume we have "users" space with unique index for login and password
+    local user = box.space.users.index.login_password:get({login, password})
+    if user then
+        self:redirect_to('/')
+        self:setcookie({ name = 'uid', value = user[0], expires = '+1y' })
+        return
     end
 
-    -- to login again and again and again
-    return self:redirect_to('/login')
+    -- sets resp to redirect back to login page
+    self:redirect_to('/login')
+
+    -- just an example of cookie deletion
+    if self:cookie("uid") then
+        self:setcookie({ name = 'uid', value = "", expires = '0m' })
+    end
 end
 ```
 
@@ -331,8 +352,8 @@ The table must contain the following fields:
   * `1d`  - 1 day
   * `+1d` - the same
   * `23d` - 23 days
-  * `+1m` - 1 month (30 days)
-  * `+1y` - 1 year (365 days)
+  * `+1m` - 1 month(not necessarily 30 days)
+  * `+1y` - 1 year
 
 ## Rendering a template
 
@@ -407,29 +428,116 @@ passed to the helper from the template.
 It is possible to define additional functions invoked at various
 stages of request processing.
 
-### `handler(httpd, req)`
+### `handler(ctx)`
 
 If `handler` is present in `httpd` options, it gets
 involved on every HTTP request, and the built-in routing
 mechanism is unused (no other hooks are called in this case).
 
-### `before_dispatch(httpd, req)`
+### `before_dispatch(ctx)`
 
-Is invoked before a request is routed to a handler. The first
+Is invoked before a request is routed to a handler. The only
 argument of the hook is the HTTP request to be handled.
-The return value of the hook is ignored.
+The hook may render and return responses.
 
-This hook could be used to log a request, or modify request headers.
+This hook may be used to add headers to response or authorize requests.
 
-### `after_dispatch(cx, resp)`
+#### Usage examples
+
+```lua
+-- CORS request handling implementation
+function before(self)
+    -- for static file response, there is a flag inside of context object
+    if self.static then
+        return
+    end
+
+    self.headers = {
+        ["Access-Control-Allow-Origin"]      = "*",
+        ["Access-Control-Max-Age"]           = 3600,
+        ["Access-Control-Allow-Credentials"] = "true",
+        ["Access-Control-Allow-Headers"]     = "Authorization, Content-Type, X-Requested-With"
+    }
+
+    --[[
+        Intercepts OPTIONS request before sending it to an actual handler
+        assigned to this endpoint.
+        Renders empty-bodied plain/text response with all the headers above,
+        also adds Access-Control-Allow-Methods header from the render method
+        below.
+    ]]
+    if self.req.method == "OPTIONS" then
+        self:render({
+            status = 201,
+            headers = {
+                ['Access-Control-Allow-Methods'] = "GET, HEAD, POST"
+            },
+            text = ""
+        })
+        return
+    end
+
+    return
+end
+```
+
+```lua
+function before(self)
+    -- assuming there's a Bearer token Authorization
+    local token = self.req.headers['Authorization']
+
+    if not token or not some_authentication_method(token) then
+        -- intercept with 401 UNAUTHORIZED response
+        self:render({
+            status = 401,
+            json = {
+                result = false,
+                error  = "Unauthorized"
+            }
+        })
+        return
+    end
+
+    return
+end
+```
+
+
+### `after_dispatch(ctx)`
 
 Is invoked after a handler for a route is executed.
 
-The arguments of the hook are the request passed into the handler,
-and the response produced by the handler.
+The arguments of the hook are the context passed into the handler,
+with response object inside.
 
 This hook can be used to modify the response.
 The return value of the hook is ignored.
+
+#### Example
+```lua
+function after(self)
+    -- for example, we need to add a header to response
+    self.res.headers["Content-Type"] = "application/json"
+
+    -- or change it's status
+    self.res.status = 404
+
+    -- or even body
+    self.res.body = json.encode({
+        result = false,
+        error = "Interfered with by after_dispatch hook"
+    })
+end
+```
+
+## Hook mapping
+```lua
+-- assigning before hook to httpd object
+httpd:hook("before_dispatch", some_before_function)
+
+-- also valid
+httpd.hooks.after_dispatch = some_after_function
+```
 
 ## See also
 

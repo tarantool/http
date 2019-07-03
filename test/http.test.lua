@@ -351,10 +351,10 @@ test:test("server requests", function(test)
     test:test('cookie', function(test)
         test:plan(2)
         httpd:route({path = '/cookie'}, function(req)
-            local resp = req:render({text = ''})
-            resp:setcookie({ name = 'test', value = 'tost',
+            req:render({text = ''})
+            req:setcookie({ name = 'test', value = 'tost',
                 expires = '+1y', path = '/abc' })
-            resp:setcookie({ name = 'xxx', value = 'yyy' })
+            req:setcookie({ name = 'xxx', value = 'yyy' })
             return resp
         end)
         local r = http_client.get('http://127.0.0.1:12345/cookie')

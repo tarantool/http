@@ -1,12 +1,13 @@
 package = 'http'
 version = 'scm-1'
 source  = {
-    url    = 'git://github.com/tarantool/http.git',
-    branch = 'master',
+    url    = 'git://github.com/get-net/http.git',
+    branch = 'request-change',
+    tag    = 'request-change'
 }
 description = {
     summary  = "HTTP server for Tarantool",
-    homepage = 'https://github.com/tarantool/http/',
+    homepage = 'https://github.com/get-net/http/',
     license  = 'BSD',
 }
 dependencies = {

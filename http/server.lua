@@ -5,96 +5,96 @@ local lib = require('http.lib')
 local io = io
 local require = require
 local package = package
+local sprintf = string.format
 local mime_types = require('http.mime_types')
 local codes = require('http.codes')
 
 local log = require('log')
+local fun = require('fun')
 local socket = require('socket')
 local json = require('json')
-local errno = require 'errno'
+local errno = require("errno")
 
 local DETACHED = 101
 
 local function errorf(fmt, ...)
-    error(string.format(fmt, ...))
-end
-
-local function sprintf(fmt, ...)
-    return string.format(fmt, ...)
+    error(sprintf(fmt, ...))
 end
 
 local function uri_escape(str)
     local res = {}
     if type(str) == 'table' then
-        for _, v in pairs(str) do
-            table.insert(res, uri_escape(v))
-        end
-    else
-        res = string.gsub(str, '[^a-zA-Z0-9_]',
-            function(c)
-                return string.format('%%%02X', string.byte(c))
-            end
+        fun.each(
+            function(v)
+                table.insert(res, uri_escape(v))
+            end,
+            str
         )
+
+        return res
     end
+
+    res = str:gsub(
+        '[^a-zA-Z0-9_]',
+        function(c)
+            return sprintf('%%%02X', string.byte(c))
+        end
+    )
+
     return res
 end
 
 local function uri_unescape(str, unescape_plus_sign)
     local res = {}
-    if type(str) == 'table' then
-        for _, v in pairs(str) do
-            table.insert(res, uri_unescape(v))
-        end
-    else
-        if unescape_plus_sign ~= nil then
-            str = string.gsub(str, '+', ' ')
-        end
 
-        res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])',
+    if type(str) == 'table' then
+        fun.each(
+            function(v)
+                table.insert(res, uri_unescape(v, unescape_plus_sign))
+            end,
+            str
+        )
+
+        return res
+    end
+
+    res = str:gsub(
+            '%%([0-9a-fA-F][0-9a-fA-F])',
             function(c)
                 return string.char(tonumber(c, 16))
             end
         )
+
+    -- unescaped pluses are "%2", so gsub didn't match those before
+    if unescape_plus_sign then
+        res = res:gsub('+', ' ')
     end
+
     return res
 end
 
 local function extend(tbl, tblu, raise)
-    local res = {}
-    for k, v in pairs(tbl) do
-        res[ k ] = v
-    end
-    for k, v in pairs(tblu) do
-        if raise then
-            if res[ k ] == nil then
-                errorf("Unknown option '%s'", k)
+    local res = table.deepcopy(tbl)
+
+    fun.each(
+        function(k, v)
+            if raise and res[k] == nil then
+                errorf("Unknown option %q", k)
             end
-        end
-        res[ k ] = v
-    end
+            rawset(res, k, v)
+        end,
+        tblu
+    )
+
     return res
 end
 
 local function type_by_format(fmt)
-    if fmt == nil then
-        return 'application/octet-stream'
-    end
-
-    local t = mime_types[ fmt ]
-
-    if t ~= nil then
-        return t
-    end
-
-    return 'application/octet-stream'
+    return mime_types[fmt] or 'application/octet-stream'
 end
 
 local function reason_by_code(code)
-    code = tonumber(code)
-    if codes[code] ~= nil then
-        return codes[code]
-    end
-    return sprintf('Unknown code %d', code)
+    return codes[tonumber(code)] or sprintf('Unknown code %d', code)
 end
 
 local function ucfirst(str)
@@ -102,87 +102,100 @@ local function ucfirst(str)
 end
 
 local function cached_query_param(self, name)
-    if name == nil then
-        return self.query_params
-    end
-    return self.query_params[ name ]
+    return self.query_params[name] or self.query_params
 end
 
 local function cached_post_param(self, name)
-    if name == nil then
-        return self.post_params
-    end
-    return self.post_params[ name ]
+    return self.post_params[name] or self.post_params
 end
 
 local function request_tostring(self)
-        local res = self:request_line() .. "\r\n"
+    local res = self:request_line() .. "\r\n"
 
-        for hn, hv in pairs(self.headers) do
+    fun.each(
+        function(hn, hv)
             res = sprintf("%s%s: %s\r\n", res, ucfirst(hn), hv)
-        end
+        end,
+        self.req.headers
+    )
 
-        return sprintf("%s\r\n%s", res, self.body)
+    return sprintf("%s\r\n%s", res, self.req.body)
 end
 
 local function request_line(self)
-        local rstr = self.path
-        if string.len(self.query) then
-            rstr = rstr .. '?' .. self.query
-        end
-        return sprintf("%s %s HTTP/%d.%d",
-            self.method, rstr, self.proto[1], self.proto[2])
+    local rstr = self.req.path
+
+    if self.req.query and #self.req.query > 0 then
+        rstr = sprintf("%s?%s", rstr, self.req.query)
+    end
+
+    return sprintf(
+        "%s %s HTTP/%d.%d",
+        self.req.method,
+        rstr,
+        self.req.proto[1],
+        self.req.proto[2]
+    )
 end
 
 local function query_param(self, name)
-        if self.query == nil and string.len(self.query) == 0 then
-            rawset(self, 'query_params', {})
-        else
-            local params = lib.params(self.query)
-            local pres = {}
-            for k, v in pairs(params) do
-                pres[ uri_unescape(k) ] = uri_unescape(v)
-            end
-            rawset(self, 'query_params', pres)
-        end
+    if self.req.query == nil or #self.req.query == 0 then
+        rawset(self, 'query_params', {})
+    else
+        local params = lib.params(self.req.query)
+        local pres = {}
 
-        rawset(self, 'query_param', cached_query_param)
-        return self:query_param(name)
+        fun.each(
+            function(k, v)
+                rawset(pres, uri_unescape(k), uri_unescape(v))
+            end,
+            params
+        )
+        rawset(self, 'query_params', pres)
+    end
+
+    rawset(self, 'query_param', cached_query_param)
+    return self:query_param(name)
 end
 
 local function request_content_type(self)
     -- returns content type without encoding string
-    if self.headers['content-type'] == nil then
+    if self.req.headers['content-type'] == nil then
         return nil
     end
 
-    return string.match(self.headers['content-type'],
-                        '^([^;]*)$') or
-        string.match(self.headers['content-type'],
-                     '^(.*);.*')
+    return string.match(
+        self.req.headers['content-type'],
+        '^([^;]*)$') or
+        string.match(
+            self.req.headers['content-type'],
+            '^(.*);.*'
+        )
 end
 
 local function post_param(self, name)
     local content_type = self:content_type()
-    if self:content_type() == 'multipart/form-data' then
+
+    if content_type == 'multipart/form-data' then
         -- TODO: do that!
         rawset(self, 'post_params', {})
-    elseif self:content_type() == 'application/json' then
+    elseif content_type == 'application/json' then
         local params = self:json()
         rawset(self, 'post_params', params)
-    elseif self:content_type() == 'application/x-www-form-urlencoded' then
-        local params = lib.params(self:read_cached())
-        local pres = {}
-        for k, v in pairs(params) do
-            pres[ uri_unescape(k) ] = uri_unescape(v, true)
-        end
-        rawset(self, 'post_params', pres)
     else
         local params = lib.params(self:read_cached())
         local pres = {}
-        for k, v in pairs(params) do
-            pres[ uri_unescape(k) ] = uri_unescape(v)
-        end
+
+        -- escape plus signs if x-www-form-urlencoded and do not otherwise
+        local escape = (content_type == 'application/x-www-form-urlencoded')
+
+        fun.each(
+            function(k, v)
+                rawset(pres, uri_unescape(k), uri_unescape(v, escape))
+            end,
+            params
+        )
+
         rawset(self, 'post_params', pres)
     end
 
@@ -191,17 +204,13 @@ local function post_param(self, name)
 end
 
 local function param(self, name)
-        if name ~= nil then
-            local v = self:post_param(name)
-            if v ~= nil then
-                return v
-            end
-            return self:query_param(name)
-        end
+    if name ~= nil then
+        return self:post_param(name) or self:query_param(name)
+    end
 
-        local post = self:post_param()
-        local query = self:query_param()
-        return extend(post, query, false)
+    local post = self:post_param()
+    local query = self:query_param()
+    return extend(post, query, false)
 end
 
 local function catfile(...)
@@ -213,60 +222,53 @@ local function catfile(...)
         return
     end
 
-    for i, pe in pairs(sp) do
-        if path == nil then
-            path = pe
-        elseif string.match(path, '.$') ~= '/' then
-            if string.match(pe, '^.') ~= '/' then
-                path = path .. '/' .. pe
+    fun.each(
+        function(pe)
+            if path == nil then
+                path = pe
+            elseif string.match(path, '.$') ~= '/' then
+                path = (string.match(pe, '^.') ~= '/') and
+                    (path .. '/' .. pe) or path .. pe
             else
-                path = path .. pe
+                path = (string.match(pe, '^.') == '/') and
+                    (path .. string.gsub(pe, '^/', '', 1)) or path .. pe
             end
-        else
-            if string.match(pe, '^.') == '/' then
-                path = path .. string.gsub(pe, '^/', '', 1)
-            else
-                path = path .. pe
-            end
-        end
-    end
+        end,
+        sp
+    )
 
     return path
 end
 
-local response_mt
 local request_mt
 
 local function expires_str(str)
-
-    local now = os.time()
-    local gmtnow = now - os.difftime(now, os.time(os.date("!*t", now)))
+    local gmtnow = os.date("!*t", os.time())
     local fmt = '%a, %d-%b-%Y %H:%M:%S GMT'
 
-    if str == 'now' or str == 0 or str == '0' then
-        return os.date(fmt, gmtnow)
+    if str == 'now' or tonumber(str) == 0 then
+        return os.date(fmt, os.time(gmtnow))
     end
 
-    local diff, period = string.match(str, '^[+]?(%d+)([hdmy])$')
-    if period == nil then
+    local diff, period = str:match('^[+]?(%d+)([hdmy])$')
+    if not period then
         return str
     end
 
-    diff = tonumber(diff)
     if period == 'h' then
-        diff = diff * 3600
+        gmtnow.hour = gmtnow.hour + diff
     elseif period == 'd' then
-        diff = diff * 86400
+        gmtnow.day = gmtnow.day + diff
     elseif period == 'm' then
-        diff = diff * 86400 * 30
+        gmtnow.month = gmtnow.month + diff
     else
-        diff = diff * 86400 * 365
+        gmtnow.year = gmtnow.year + 1
     end
 
-    return os.date(fmt, gmtnow + diff)
+    return os.date(fmt, os.time(gmtnow))
 end
 
-local function setcookie(resp, cookie)
+local function setcookie(ctx, cookie)
     local name = cookie.name
     local value = cookie.value
 
@@ -289,33 +291,40 @@ local function setcookie(resp, cookie)
         str = sprintf('%s;expires=%s', str, expires_str(cookie.expires))
     end
 
-    if not resp.headers then
-        resp.headers = {}
+    if not ctx.res then
+        ctx.res = {}
     end
-    if resp.headers['set-cookie'] == nil then
-        resp.headers['set-cookie'] = { str }
-    elseif type(resp.headers['set-cookie']) == 'string' then
-        resp.headers['set-cookie'] = {
-            resp.headers['set-cookie'],
+
+    if not ctx.res.headers then
+        ctx.res.headers = {}
+    end
+
+    if ctx.res.headers['set-cookie'] == nil then
+        ctx.res.headers['set-cookie'] = { str }
+    elseif type(ctx.res.headers['set-cookie']) == 'string' then
+        ctx.res.headers['set-cookie'] = {
+            ctx.res.headers['set-cookie'],
             str
         }
     else
-        table.insert(resp.headers['set-cookie'], str)
+        table.insert(ctx.res.headers['set-cookie'], str)
     end
-    return resp
+
+    return
 end
 
-local function cookie(tx, cookie)
-    if tx.headers.cookie == nil then
+local function cookie(ctx, c)
+    if ctx.req.headers.cookie == nil then
         return nil
     end
-    for k, v in string.gmatch(
-                tx.headers.cookie, "([^=,; \t]+)=([^,; \t]+)") do
-        if k == cookie then
+
+    for k, v in ctx.req.headers.cookie:gmatch("([^=,; \t]+)=([^,; \t]+)") do
+        if k == c then
             return uri_unescape(v)
         end
     end
-    return nil
+
+    return
 end
 
 local function url_for_helper(tx, name, args, query)
@@ -327,19 +336,19 @@ local function load_template(self, r, format)
         return
     end
 
-    if format == nil then
-        format = 'html'
-    end
+    format = format or "html"
 
     local file
+
     if r.file ~= nil then
         file = r.file
     elseif r.controller ~= nil and r.action ~= nil then
         file = catfile(
             string.gsub(r.controller, '[.]', '/'),
-            r.action .. '.' .. format .. '.el')
+            sprintf("%s.%s.el", r.action, format)
+        )
     else
-        errorf("Can not find template for '%s'", r.path)
+        errorf("Can not find template for %q", r.path)
     end
 
     if self.options.cache_templates then
@@ -347,7 +356,6 @@ local function load_template(self, r, format)
             return self.cache.tpl[ file ]
         end
     end
-
 
     local tpl = catfile(self.options.app_dir, 'templates', file)
     local fh = io.input(tpl)
@@ -357,6 +365,7 @@ local function load_template(self, r, format)
     if self.options.cache_templates then
         self.cache.tpl[ file ] = template
     end
+
     return template
 end
 
@@ -365,38 +374,63 @@ local function render(tx, opts)
         error("Usage: self:render({ ... })")
     end
 
-    local resp = setmetatable({ headers = {} }, response_mt)
+    local resp = {headers = tx.headers or {}}
+
     local vars = {}
-    if opts ~= nil then
-        if opts.text ~= nil then
-            if tx.httpd.options.charset ~= nil then
-                resp.headers['content-type'] =
-                    sprintf("text/plain; charset=%s",
-                        tx.httpd.options.charset
-                    )
+    if opts then
+        -- so you may set or add headers and status right through resp:render()
+        if opts.headers then
+            if next(resp.headers) then
+                fun.each(
+                    function(n, val)
+                        rawset(resp.headers, n, val)
+                    end,
+                    opts.headers
+                )
             else
-                resp.headers['content-type'] = 'text/plain'
+                resp.headers = opts.headers
             end
-            resp.body = tostring(opts.text)
-            return resp
         end
 
-        if opts.json ~= nil then
-            if tx.httpd.options.charset ~= nil then
+        resp.status  = opts.status
+
+        if opts.text then
+            resp.headers['content-type'] = 'text/plain'
+            if tx.httpd.options.charset then
                 resp.headers['content-type'] =
-                    sprintf('application/json; charset=%s',
+                    sprintf("%s; charset=%s",
+                        resp.headers['content-type'],
                         tx.httpd.options.charset
                     )
-            else
-                resp.headers['content-type'] = 'application/json'
             end
+
+            resp.body = tostring(opts.text)
+            tx.res = resp
+
+            return
+        end
+
+        if opts.json then
+            resp.headers['content-type'] = 'application/json'
+            if tx.httpd.options.charset then
+                resp.headers['content-type'] =
+                    sprintf('%s; charset=%s',
+                        resp.headers['content-type'],
+                        tx.httpd.options.charset
+                    )
+            end
+
             resp.body = json.encode(opts.json)
-            return resp
+            tx.res = resp
+
+            return
         end
 
         if opts.data ~= nil then
             resp.body = tostring(opts.data)
-            return resp
+
+            tx.res = resp
+            return
         end
 
         vars = extend(tx.tstash, opts, false)
@@ -404,12 +438,9 @@ local function render(tx, opts)
 
     local tpl
 
-    local format = tx.tstash.format
-    if format == nil then
-        format = 'html'
-    end
+    local format = tx.tstash.format or "html"
 
-    if tx.endpoint.template ~= nil then
+    if tx.endpoint.template then
         tpl = tx.endpoint.template
     else
         tpl = load_template(tx.httpd, tx.endpoint, format)
@@ -422,9 +453,13 @@ local function render(tx, opts)
         tpl = tpl()
     end
 
-    for hname, sub in pairs(tx.httpd.helpers) do
-        vars[hname] = function(...) return sub(tx, ...) end
-    end
+    fun.each(
+        function(hname, sub)
+            rawset(vars, hname, function(...) return sub(tx, ...) end)
+        end,
+        tx.httpd.helpers
+    )
+
     vars.action = tx.endpoint.action
     vars.controller = tx.endpoint.controller
     vars.format = format
@@ -438,24 +473,29 @@ local function render(tx, opts)
                 .. '; charset=' .. tx.httpd.options.charset
         end
     end
-    return resp
+
+    tx.res = resp
+    return
 end
 
-local function iterate(tx, gen, param, state)
-    return setmetatable({ body = { gen = gen, param = param, state = state } },
-        response_mt)
+local function iterate(tx, gen, params, state)
+    tx.res = { body = { gen = gen, param = params, state = state } }
+
+    return
 end
 
 local function redirect_to(tx, name, args, query)
     local location = tx:url_for(name, args, query)
-    return setmetatable({ status = 302, headers = { location = location } },
-        response_mt)
+    tx.res = { status = 302, headers = { location = location } }
+
+    return
 end
 
 local function access_stash(tx, name, ...)
     if type(tx) ~= 'table' then
         error("usage: ctx:stash('name'[, 'value'])")
     end
+
     if select('#', ...) > 0 then
         tx.tstash[ name ] = select(1, ...)
     end
@@ -467,25 +507,31 @@ local function url_for_tx(tx, name, args, query)
     if name == 'current' then
         return tx.endpoint:url_for(args, query)
     end
+
     return tx.httpd:url_for(name, args, query)
 end
 
 local function request_json(req)
     local data = req:read_cached()
-    local s, json = pcall(json.decode, data)
-    if s then
-       return json
-    else
-       error(sprintf("Can't decode json in request '%s': %s",
-           data, tostring(json)))
-       return nil
+    local s, result = pcall(json.decode, data)
+
+    if not s then
+        errorf(
+            "Can't decode json in request %q: %s",
+            data,
+            tostring(result)
+        )
+        return
     end
+
+    return result
 end
 
-local function request_read(req, opts, timeout)
-    local remaining = req._remaining
+local function request_read(ctx, opts, timeout)
+    local remaining = ctx.req._remaining
+
     if not remaining then
-        remaining = tonumber(req.headers['content-length'])
+        remaining = tonumber(ctx.req.headers['content-length'])
         if not remaining then
             return ''
         end
@@ -507,14 +553,14 @@ local function request_read(req, opts, timeout)
         end
     end
 
-    local buf = req.s:read(opts, timeout)
+    local buf = ctx.s:read(opts, timeout)
     if buf == nil then
-        req._remaining = 0
+        ctx.req._remaining = 0
         return ''
     end
     remaining = remaining - #buf
     assert(remaining >= 0)
-    req._remaining = remaining
+    ctx.req._remaining = remaining
     return buf
 end
 
@@ -523,44 +569,55 @@ local function request_read_cached(self)
         local data = self:read()
         rawset(self, 'cached_data', data)
         return data
-    else
-        return self.cached_data
     end
+
+    return self.cached_data
 end
 
 local function static_file(self, request, format)
-        local file = catfile(self.options.app_dir, 'public', request.path)
+    local file = catfile(self.options.app_dir, 'public', request.req.path)
+    request.static = true
 
-        if self.options.cache_static and self.cache.static[ file ] ~= nil then
-            return {
-                code = 200,
-                headers = {
-                    [ 'content-type'] = type_by_format(format),
-                },
-                body = self.cache.static[ file ]
-            }
-        end
-
-        local s, fh = pcall(io.input, file)
-
-        if not s then
-            return { status = 404 }
-        end
-
-        local body = fh:read('*a')
-        io.close(fh)
-
-        if self.options.cache_static then
-            self.cache.static[ file ] = body
-        end
-
-        return {
-            status = 200,
+    if self.options.cache_static and self.cache.static[file] ~= nil then
+        local resp = {
+            code = 200,
             headers = {
-                [ 'content-type'] = type_by_format(format),
+                ['content-type'] = type_by_format(format),
             },
-            body = body
+            body = self.cache.static[file]
         }
+        request.res = resp
+
+        return
+    end
+
+    local s, fh = pcall(io.input, file)
+
+    if not s then
+        local resp = { status = 404 }
+        request.res = resp
+
+        return
+    end
+
+    local body = fh:read('*a')
+    io.close(fh)
+
+    if self.options.cache_static then
+        self.cache.static[file] = body
+    end
+
+    local resp = {
+        status = 200,
+        headers = {
+            ['content-type'] = type_by_format(format),
+        },
+        body = body
+    }
+
+    request.res = resp
+
+    return
 end
 
 request_mt = {
@@ -578,15 +635,10 @@ request_mt = {
         post_param  = post_param,
         param       = param,
         read        = request_read,
-        json        = request_json
+        json        = request_json,
+        setcookie   = setcookie;
     },
     __tostring = request_tostring;
-}
-
-response_mt = {
-    __index = {
-        setcookie = setcookie;
-    }
 }
 
 local function is_function(obj)
@@ -633,40 +685,59 @@ local function get_error_logger(server_opts, route_opts)
     return log.debug
 end
 
-local function handler(self, request)
-    if self.hooks.before_dispatch ~= nil then
-        self.hooks.before_dispatch(self, request)
-    end
-
+local function handler(self, ctx)
     local format = 'html'
 
-    local pformat = string.match(request.path, '[.]([^.]+)$')
+    local pformat = string.match(ctx.req.path, '[.]([^.]+)$')
+
     if pformat ~= nil then
         format = pformat
     end
 
-    local r = self:match(request.method, request.path)
+    local r = self:match(ctx.req.method, ctx.req.path)
+
     if r == nil then
-        return static_file(self, request, format)
+        local _ = static_file(self, ctx, format)
+
+        return ctx.res
+    else
+        local stash = extend(r.stash, { format = format })
+
+        ctx.endpoint = r.endpoint
+        ctx.tstash   = stash
     end
 
-    local stash = extend(r.stash, { format = format })
+    if self.hooks.before_dispatch ~= nil then
+        local _ = self.hooks.before_dispatch(ctx)
 
-    request.endpoint = r.endpoint
-    request.tstash   = stash
+        if ctx.res then
+            return ctx.res
+        end
+    end
 
-    local resp = r.endpoint.sub(request)
+    local resp = r.endpoint.sub(ctx)
+
+    if not ctx.res and resp then
+        ctx.res = resp
+    end
+
     if self.hooks.after_dispatch ~= nil then
-        self.hooks.after_dispatch(request, resp)
+        self.hooks.after_dispatch(ctx)
     end
-    return resp
+
+    return ctx.res or {}
 end
 
 local function normalize_headers(hdrs)
     local res = {}
-    for h, v in pairs(hdrs) do
-        res[ string.lower(h) ] = v
-    end
+
+    fun.each(
+        function(h, v)
+            rawset(res, h:lower(), v)
+        end,
+        hdrs
+    )
+
     return res
 end
 
@@ -676,7 +747,7 @@ local function parse_request(req)
         return p
     end
     p.path = uri_unescape(p.path)
-    if p.path:sub(1, 1) ~= "/" or p.path:find("./", nil, true) ~= nil then
+    if not p.path:startswith("/") or p.path:find("./", nil, true) then
         p.error = "invalid uri"
         return p
     end
@@ -703,7 +774,7 @@ local function process_client(self, s, peer)
 
             hdrs = hdrs .. chunk
 
-            if string.endswith(hdrs, "\n\n") or string.endswith(hdrs, "\r\n\r\n") then
+            if hdrs:endswith("\n\n") or hdrs:endswith("\r\n\r\n") then
                 break
             end
         end
@@ -713,7 +784,10 @@ local function process_client(self, s, peer)
         end
 
         log.debug("request:\n%s", hdrs)
-        local p = parse_request(hdrs)
+
+        local req = parse_request(hdrs)
+        local p = {req = req}
+
         if p.error ~= nil then
             log.error('failed to parse request: %s', p.error)
             s:write(sprintf("HTTP/1.0 400 Bad request\r\n\r\n%s", p.error))
@@ -724,14 +798,14 @@ local function process_client(self, s, peer)
         p.peer = peer
         setmetatable(p, request_mt)
 
-        if p.headers['expect'] == '100-continue' then
+        if p.req.headers['expect'] == '100-continue' then
             s:write('HTTP/1.0 100 Continue\r\n\r\n')
         end
 
-        local route = self:match(p.method, p.path)
+        local route = self:match(p.req.method, p.req.path)
         local logreq = get_request_logger(self.options, route)
-        logreq("%s %s%s", p.method, p.path,
-               p.query ~= "" and "?"..p.query or "")
+        logreq("%s %s%s", p.req.method, p.req.path,
+               p.req.query ~= "" and "?"..p.req.query or "")
 
         local res, reason = pcall(self.options.handler, self, p)
         p:read() -- skip remaining bytes of request body
@@ -743,7 +817,7 @@ local function process_client(self, s, peer)
             local trace = debug.traceback()
             local logerror = get_error_logger(self.options, route)
             logerror('unhandled error: %s\n%s\nrequest:\n%s',
-                     tostring(reason), trace, tostring(p))
+                tostring(reason), trace, tostring(p))
             if self.options.display_errors then
             body =
                   "Unhandled error: " .. tostring(reason) .. "\n"
@@ -804,24 +878,24 @@ local function process_client(self, s, peer)
             hdrs.server = sprintf('Tarantool http (tarantool v%s)', _TARANTOOL)
         end
 
-        if p.proto[1] ~= 1 then
+        if p.req.proto[1] ~= 1 then
             hdrs.connection = 'close'
         elseif p.broken then
             hdrs.connection = 'close'
-        elseif rawget(p, 'body') == nil then
+        elseif rawget(p.req, 'body') == nil then
             hdrs.connection = 'close'
-        elseif p.proto[2] == 1 then
-            if p.headers.connection == nil then
+        elseif p.req.proto[2] == 1 then
+            if p.req.headers.connection == nil then
                 hdrs.connection = 'keep-alive'
-            elseif string.lower(p.headers.connection) ~= 'keep-alive' then
+            elseif string.lower(p.req.headers.connection) ~= 'keep-alive' then
                 hdrs.connection = 'close'
             else
                 hdrs.connection = 'keep-alive'
             end
-        elseif p.proto[2] == 0 then
-            if p.headers.connection == nil then
+        elseif p.req.proto[2] == 0 then
+            if p.req.headers.connection == nil then
                 hdrs.connection = 'close'
-            elseif string.lower(p.headers.connection) == 'keep-alive' then
+            elseif string.lower(p.req.headers.connection) == 'keep-alive' then
                 hdrs.connection = 'keep-alive'
             else
                 hdrs.connection = 'close'
@@ -835,15 +909,23 @@ local function process_client(self, s, peer)
             reason_by_code(status);
             "\r\n";
         };
-        for k, v in pairs(hdrs) do
-            if type(v) == 'table' then
-                for i, sv in pairs(v) do
-                    table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), sv))
+
+        fun.each(
+            function(k, v)
+                if type(v) == 'table' then
+                    fun.each(
+                        function(sv)
+                            table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), sv))
+                        end,
+                        v
+                    )
+                else
+                    table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), v))
                 end
-            else
-                table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), v))
-            end
-        end
+            end,
+            hdrs
+        )
+
         table.insert(response, "\r\n")
 
         if type(body) == 'string' then
@@ -875,7 +957,7 @@ local function process_client(self, s, peer)
             end
         end
 
-        if p.proto[1] ~= 1 then
+        if p.req.proto[1] ~= 1 then
             break
         end
 
@@ -916,87 +998,100 @@ local function match_route(self, method, route)
     local fit
     local stash = {}
 
-    for k, r in pairs(self.routes) do
-        if r.method == method or r.method == 'ANY' then
-            local m = { string.match(route, r.match)  }
-            local nfit
-            if #m > 0 then
-                if #r.stash > 0 then
-                    if #r.stash == #m then
+    fun.each(
+        function(r)
+            if r.method == method or r.method == 'ANY' then
+                local m = { string.match(route, r.match) }
+                local nfit
+
+                if #m > 0 then
+                    if #r.stash > 0 then
+                        if #r.stash == #m then
+                            nfit = r
+                        end
+                    else
                         nfit = r
                     end
-                else
-                    nfit = r
-                end
 
-                if nfit ~= nil then
-                    if fit == nil then
-                        fit = nfit
-                        stash = m
-                    else
-                        if #fit.stash > #nfit.stash then
+                    if nfit ~= nil then
+                        if fit == nil then
                             fit = nfit
                             stash = m
-                        elseif r.method ~= fit.method then
-                            if fit.method == 'ANY' then
+                        else
+                            if #fit.stash > #nfit.stash then
                                 fit = nfit
                                 stash = m
+                            elseif r.method ~= fit.method then
+                                if fit.method == 'ANY' then
+                                    fit = nfit
+                                    stash = m
+                                end
                             end
                         end
                     end
                 end
             end
-        end
-    end
+        end,
+        self.routes
+    )
 
     if fit == nil then
         return fit
     end
     local resstash = {}
-    for i = 1, #fit.stash do
-        resstash[ fit.stash[ i ] ] = stash[ i ]
-    end
+    fun.each(
+        function(i)
+            rawset(resstash, fit.stash[i], stash[i])
+        end,
+        fun.range(#fit.stash)
+    )
+
     return  { endpoint = fit, stash = resstash }
 end
 
 local function set_helper(self, name, sub)
-    if sub == nil or type(sub) == 'function' then
-        self.helpers[ name ] = sub
-        return self
+    if sub and type(sub) ~= 'function' then
+        errorf("Wrong type for helper function: %s", type(sub))
     end
-    errorf("Wrong type for helper function: %s", type(sub))
+
+    self.helpers[ name ] = sub
+    return self
 end
 
 local function set_hook(self, name, sub)
-    if sub == nil or type(sub) == 'function' then
-        self.hooks[ name ] = sub
-        return self
+    if sub and type(sub) ~= 'function' then
+        errorf("Wrong type for hook function: %s", type(sub))
     end
-    errorf("Wrong type for hook function: %s", type(sub))
+
+    self.hooks[ name ] = sub
+    return self
 end
 
 local function url_for_route(r, args, query)
-    if args == nil then
-        args = {}
-    end
+    args = args or {}
+
     local name = r.path
-    for i, sn in pairs(r.stash) do
-        local sv = args[sn]
-        if sv == nil then
-            sv = ''
-        end
-        name = string.gsub(name, '[*:]' .. sn, sv, 1)
-    end
+
+    fun.each(
+        function(sn)
+            local sv = args[sn] or ''
+            name = string.gsub(name, '[*:]' .. sn, sv, 1)
+        end,
+        r.stash
+    )
 
     if query ~= nil then
         if type(query) == 'table' then
             local sep = '?'
-            for k, v in pairs(query) do
-                name = name .. sep .. uri_escape(k) .. '=' .. uri_escape(v)
-                sep = '&'
-            end
+            fun.each(
+               function(k, v)
+                   name = sprintf("%s%s%s=%s", name, sep, uri_escape(k), uri_escape(v))
+                   sep  = '&'
+               end,
+                query
+            )
         else
-            name = name .. '?' .. query
+            name = sprintf("%s?%s", name, query)
         end
     end
 
@@ -1013,7 +1108,7 @@ local function ctx_action(tx)
     if tx.httpd.options.cache_controllers then
         if tx.httpd.cache[ ctx ] ~= nil then
             if type(tx.httpd.cache[ ctx ][ action ]) ~= 'function' then
-                errorf("Controller '%s' doesn't contain function '%s'",
+                errorf("Controller %q doesn't contain function %q",
                     ctx, action)
             end
             return tx.httpd.cache[ ctx ][ action ](tx)
@@ -1034,15 +1129,15 @@ local function ctx_action(tx)
     package.loaded[ ctx ] = nil
 
     if not st then
-        errorf("Can't load module '%s': %s'", ctx, tostring(mod))
+        errorf("Can't load module %q: %s", ctx, tostring(mod))
     end
 
     if type(mod) ~= 'table' then
-        errorf("require '%s' didn't return table", ctx)
+        errorf("require %q didn't return table", ctx)
     end
 
     if type(mod[ action ]) ~= 'function' then
-        errorf("Controller '%s' doesn't contain function '%s'", ctx, action)
+        errorf("Controller %q doesn't contain function %q", ctx, action)
     end
 
     if tx.httpd.options.cache_controllers then
@@ -1078,7 +1173,7 @@ local function add_route(self, opts, sub)
         ctx, action = string.match(sub, '(.+)#(.*)')
 
         if ctx == nil or action == nil then
-            errorf("Wrong controller format '%s', must be 'module#action'", sub)
+            errorf("Wrong controller format %q, must be 'module#action'", sub)
         end
 
         sub = ctx_action
@@ -1160,7 +1255,7 @@ local function add_route(self, opts, sub)
             error("Route can not have name 'current'")
         end
         if self.iroutes[ opts.name ] ~= nil then
-            errorf("Route with name '%s' is already exists", opts.name)
+            errorf("Route with name %q is already exists", opts.name)
         end
         table.insert(self.routes, opts)
         self.iroutes[ opts.name ] = #self.routes
@@ -1171,8 +1266,8 @@ local function add_route(self, opts, sub)
 end
 
 local function url_for_httpd(httpd, name, args, query)
-
     local idx = httpd.iroutes[ name ]
+
     if idx ~= nil then
         return httpd.routes[ idx ]:url_for(args, query)
     end
@@ -1183,9 +1278,9 @@ local function url_for_httpd(httpd, name, args, query)
         else
             return '/' .. name
         end
-    else
-        return name
     end
+
+    return name
 end
 
 local function httpd_start(self)
@@ -1193,11 +1288,16 @@ local function httpd_start(self)
         error("httpd: usage: httpd:start()")
     end
 
-    local server = socket.tcp_server(self.host, self.port,
-                     { name = 'http',
-                       handler = function(...)
-                           local res = process_client(self, ...)
-                     end})
+    local server = socket.tcp_server(
+        self.host,
+        self.port,
+        {
+            name = 'http',
+            handler = function(...)
+                          local _ = process_client(self, ...)
+                      end
+        }
+    )
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
     end
@@ -1217,7 +1317,7 @@ local exports = {
             options = {}
         end
         if type(options) ~= 'table' then
-            errorf("options must be table not '%s'", type(options))
+            errorf("options must be table not %q", type(options))
         end
         local default = {
             max_header_size     = 4096,
