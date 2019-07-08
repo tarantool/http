@@ -1,13 +1,12 @@
 package = 'http'
 version = '1.0.2-1'
 source  = {
-    url    = 'git://github.com/get-net/http.git',
-    branch = 'request-change',
-    tag    = 'request-change'
+    url    = 'git://github.com/tarantool/http.git',
+    tag    = '1.0.2',
 }
 description = {
     summary  = "HTTP server for Tarantool",
-    homepage = 'https://github.com/get-net/http/',
+    homepage = 'https://github.com/tarantool/http/',
     license  = 'BSD',
 }
 dependencies = {
