@@ -57,6 +57,9 @@ local function uri_unescape(str, unescape_plus_sign)
 
         return res
     end
+    if unescape_plus_sign then
+        str = str:gsub('+', ' ')
+    end
 
     res = str:gsub(
             '%%([0-9a-fA-F][0-9a-fA-F])',
@@ -64,11 +67,6 @@ local function uri_unescape(str, unescape_plus_sign)
                 return string.char(tonumber(c, 16))
             end
         )
-
-    -- unescaped pluses are "%2", so gsub didn't match those before
-    if unescape_plus_sign then
-        res = res:gsub('+', ' ')
-    end
 
     return res
 end
@@ -147,7 +145,7 @@ local function query_param(self, name)
 
         fun.each(
             function(k, v)
-                rawset(pres, uri_unescape(k), uri_unescape(v))
+                rawset(pres, uri_unescape(k), uri_unescape(v, true))
             end,
             params
         )
