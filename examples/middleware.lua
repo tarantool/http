@@ -77,5 +77,5 @@ ok = router:use({
 assert(ok, 'no conflict on adding hello_world middleware')
 
 
-httpd:set_router(router)
+httpd:set_handler(router)
 httpd:start()

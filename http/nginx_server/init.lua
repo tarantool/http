@@ -149,7 +149,7 @@ local function generic_entrypoint(server, req, ...) -- luacheck: ignore
     return status, headers, body
 end
 
-local function ngxserver_set_router(self, router)
+local function ngxserver_set_handler(self, router)
     checks('table', 'function|table')         -- luacheck: ignore
 
     self.router = router
@@ -187,7 +187,7 @@ local function new(opts)
         log_errors = opts.log_errors or true,
         log_requests = opts.log_requests or true,
 
-        set_router = ngxserver_set_router,
+        set_handler = ngxserver_set_handler,
         start = ngxserver_start,
         stop = ngxserver_stop,
     }
