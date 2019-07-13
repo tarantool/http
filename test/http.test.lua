@@ -203,7 +203,7 @@ local function cfgserv()
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
                 function(cx) return cx:render({ title = 'title: 123' }) end)
-    httpd:set_router(router)
+    httpd:set_handler(router)
     return httpd, router
 end
 

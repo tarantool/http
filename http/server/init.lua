@@ -304,7 +304,7 @@ local function httpd_start(self)
     return self
 end
 
-local function httpd_set_router(self, router)
+local function httpd_set_handler(self, router)
     self.options.handler = router
 end
 
@@ -329,7 +329,7 @@ local new = function(host, port, options)
         is_run  = false,
         stop    = httpd_stop,
         start   = httpd_start,
-        set_router = httpd_set_router,
+        set_handler = httpd_set_handler,
         options = utils.extend(default, options, true),
     }
 
