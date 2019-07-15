@@ -6,6 +6,8 @@ local request_metatable = require('http.router.request').metatable
 local utils = require('http.utils')
 local tsgi = require('http.tsgi')
 
+require('checks')
+
 local function uri_file_extension(s, default)
     -- cut from last dot till the end
     local ext = string.match(s, '[.]([^.]+)$')
@@ -190,23 +192,25 @@ local possible_methods = {
     PATCH  = 'PATCH',
 }
 
-local function use_middleware(self, opts)
+local function use_middleware(self, handler, opts)
+    checks('table', 'function', {  -- luacheck: ignore
+        path = '?string',
+        method = '?string|table',
+        name = '?string',
+        preroute = '?boolean',
+        before = '?string|table',
+        after = '?string|table',
+    })
     local opts = table.deepcopy(opts)   -- luacheck: ignore
+    opts.handler = handler
 
-    if type(opts) ~= 'table' or type(self) ~= 'table' then
-        error("Usage: router:route({ ... }, function(cx) ... end)")
-    end
-
-    assert(type(opts.name) == 'string')
-    assert(type(opts.handler) == 'function')
-
+    local uuid = require('uuid')
     opts.path = opts.path or '/.*'
-    assert(type(opts.path) == 'string')
-
     opts.method = opts.method or 'ANY'
-
+    opts.name = opts.name or uuid.str()
     opts.before = opts.before or {}
     opts.after = opts.after or {}
+
     for _, order_key in ipairs({'before', 'after'}) do
         local opt = opts[order_key]
         assert(type(opt) ~= 'string' or type(opt) ~= 'table',
