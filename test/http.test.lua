@@ -625,23 +625,21 @@ test:test("middleware", function(test)
         return resp
     end
 
-    local ok = router:use({
+    local ok = router:use(add_helloworld_to_response, {
         name = 'hello_world',
         path = '/.*',
         method = {'GET', 'POST'},
-        handler = add_helloworld_to_response
     })
     test:ok(ok, 'hello_world middleware added successfully')
 
     local middlewares_ordered = router.middleware:ordered()
     test:is(#middlewares_ordered, 1, 'one middleware is registered')
 
-    ok = router:use({
+    ok = router:use(add_helloworld_before_to_response, {
         name = 'hello_world_before',
         path = '/.*',
         method = 'ANY',
         before = 'hello_world',
-        handler = add_helloworld_before_to_response
     })
     test:ok(ok, 'hello_world_before middleware added successfully')
 
@@ -701,10 +699,9 @@ test:test("middleware", function(test)
         return tsgi.next(env)
     end
 
-    ok = router:use({
+    ok = router:use(swap_orange_and_apple, {
         preroute = true,
         name = 'swap_orange_and_apple',
-        handler = swap_orange_and_apple,
     })
     test:ok(ok, 'swap_orange_and_apple middleware added successfully')
 
