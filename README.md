@@ -7,6 +7,10 @@ align="right">
 
 [![Build Status](https://travis-ci.org/tarantool/http.png?branch=tarantool-1.7)](https://travis-ci.org/tarantool/http)
 
+> **DISCLAIMER:** Any functionality not described here is subject to change
+> in backward incompatible fashion at any time. Don't rely on source code
+> internals.
+
 > **Note:** In Tarantool 1.7.5+, a full-featured HTTP client is available aboard.
 > For Tarantool 1.6.5+, both HTTP server and client are available
 > [here](https://github.com/tarantool/http/tree/tarantool-1.6).
@@ -18,21 +22,17 @@ align="right">
 * [Usage](#usage)
 * [Creating a server](#creating-a-server)
 * [Using routes](#using-routes)
-* [Contents of app\_dir](#contents-of-app_dir)
 * [Route handlers](#route-handlers)
   * [Fields and methods of the Request object](#fields-and-methods-of-the-request-object)
   * [Fields and methods of the Response object](#fields-and-methods-of-the-response-object)
   * [Examples](#examples)
 * [Working with stashes](#working-with-stashes)
-  * [Special stash names](#special-stash-names)
 * [Working with cookies](#working-with-cookies)
-* [Rendering a template](#rendering-a-template)
-* [Template helpers](#template-helpers)
-* [Hooks](#hooks)
-  * [handler(httpd, req)](#handlerhttpd-req)
-  * [before\_dispatch(httpd, req)](#before_dispatchhttpd-req)
-  * [after\_dispatch(cx, resp)](#after_dispatchcx-resp)
-* [See also](#see-also)
+* [Middleware](#middleware)
+  * [router:use(f, opts)](#routerusef-opts)
+  * [f](#f)
+  * [Ordering](#ordering)
+  * [Example](#example)
 
 ## Prerequisites
 
@@ -67,26 +67,38 @@ You can:
 
 ## Usage
 
-The server is an object which is configured with HTTP request
-handlers, routes (paths), templates, and a port to bind to.
+There are 4 main logical objects you can operate with:
+1. **server**, which can be nginx or built-in
+2. **router**, where you define routes and middleware
+3. **route**, a function processing HTTP requests
+4. **middleware**, a function invoked before route handler is invoked
+
+The **server** is an object which implements HTTP protocol and handles all
+lower level stuff like TCP connection.
 Unless Tarantool is running under a superuser, port numbers
 below 1024 may be unavailable.
 
 The server can be started and stopped anytime. Multiple
 servers can be created.
 
-To start a server:
+The **router** is where you define how and who will handle your requests
+configured with HTTP request handlers, routes (paths), templates,
+and a port to bind to. You need to set the router to a server, for it to be used.
 
-1. [Create it](#creating-a-server) with `httpd = require('http.server').new(...)`.
-2. [Configure routing](#using-routes) with `httpd:route(...)`.
-3. Start it with `httpd:start()`.
+To start a server with a router:
 
-To stop the server, use `httpd:stop()`.
+1. [Create a server](#creating-a-server) with `server = require('http.server').new(...)`.
+2. [Create a router](#creating-a-router) with `router = require('http.router').new(...)`.
+3. Set a router to server with `server:set_router(router)`.
+4. [Configure routing](#using-routes) with `router:route(...)`.
+5. Start serving HTTP requests it with `server:start()`.
+
+To stop the server, use `server:stop()`.
 
 ## Creating a server
 
 ```lua
-httpd = require('http.server').new(host, port[, { options } ])
+server = require('http.server').new(host, port[, { options } ])
 ```
 
 `host` and `port` must contain: 
@@ -95,23 +107,25 @@ httpd = require('http.server').new(host, port[, { options } ])
 
 `options` may contain:
 
-* `max_header_size` (default is 4096 bytes) - a limit for
-  HTTP request header size.
-* `header_timeout` (default: 100 seconds) - a timeout until
-  the server stops reading HTTP headers sent by the client.
-  The server closes the client connection if the client doesn't
-  send its headers within the given amount of time.
-* `app_dir` (default is '.', the server working directory) -
-  a path to the directory with HTML templates and controllers.
 * `handler` - a Lua function to handle HTTP requests (this is
   a handler to use if the module "routing" functionality is not
   needed).
-* `charset` - the character set for server responses of
-  type `text/html`, `text/plain` and `application/json`.
 * `display_errors` - return application errors and backtraces to the client
   (like PHP).
 * `log_errors` - log application errors using `log.error()`.
 * `log_requests` - log incoming requests.
+
+## Creating a router
+
+```lua
+router = require('http.router').new(options)
+server:set_router(router)
+```
+
+`options` may contain:
+
+* `charset` - the character set for server responses of
+  type `text/html`, `text/plain` and `application/json`.
 
 ## Using routes
 
@@ -138,50 +152,20 @@ Route examples:
 To configure a route, use the `route()` method of the `httpd` object:
 
 ```lua
-httpd:route({ path = '/path/to' }, 'controller#action')
-httpd:route({ path = '/', template = 'Hello <%= var %>' }, handle1)
-httpd:route({ path = '/:abc/cde', file = 'users.html.el' }, handle2)
 httpd:route({ path = '/objects', method = 'GET' }, handle3)
 ...
 ```
 
 The first argument for `route()` is a Lua table with one or more keys:
 
-* `file` - a template file name (can be relative to.
-  `{app_dir}/templates`, where `app_dir` is the path set when creating the
-  server). If no template file name extension is provided, the extension is
-  set to ".html.el", meaning HTML with embedded Lua.
-* `template` - template Lua variable name, in case the template
-  is a Lua variable. If `template` is a function, it's called on every
-  request to get template body. This is useful if template body must be
-  taken from a database.
-* `path` - route path, as described earlier.
-* `name` - route name.
-* `method` - method on the route like `POST`, `GET`, `PUT`, `DELETE`
+| key | description |
+| --- | ----------- |
+| `path` | route path, as described earlier. |
+| `name` | route name. |
+| `method` | method on the route like `POST`, `GET`, `PUT`, `DELETE` |
 
 The second argument is the route handler to be used to produce
 a response to the request.
-
-The typical usage is to avoid passing `file` and `template` arguments,
-since they take time to evaluate, but these arguments are useful
-for writing tests or defining HTTP servers with just one "route".
-
-The handler can also be passed as a string of the form 'filename#functionname'.
-In that case, the handler body is taken from a file in the
-`{app_dir}/controllers` directory.
-
-## Contents of `app_dir`
-
-* `public` - a path to static content. Everything stored on this path
-  defines a route which matches the file name, and the HTTP server serves this
-  file automatically, as is. Notice that the server doesn't use `sendfile()`,
-  and it reads the entire content of the file into the memory before passing
-  it to the client. ??? Caching is not used, unless turned on. So this is not
-  suitable for large files, use nginx instead.
-* `templates` -  a path to templates.
-* `controllers` - a path to *.lua files with Lua controllers. For example,
-  the controller name 'module.submodule#foo' is mapped to
-  `{app_dir}/controllers/module.submodule.lua`.
 
 ## Route handlers
 
@@ -201,42 +185,36 @@ end
 
 ### Fields and methods of the Request object
 
-* `req.method` - HTTP request type (`GET`, `POST` etc).
-* `req.path` - request path.
-* `req.query` - request arguments.
-* `req.proto` - HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`).
-* `req.headers` - normalized request headers. A normalized header
-  is in the lower case, all headers joined together into a single string.
-* `req.peer` - a Lua table with information about the remote peer
-  (like `socket:peer()`).
-  **NOTE**: when router is being used with
-  nginx adapter, `req.peer` contains information on iproto connection with
-  nginx, not the original HTTP user-agent.
-* `tostring(req)` - returns a string representation of the request.
-* `req:request_line()` - returns the request body.
-* `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - reads the
-  raw request body as a stream (see `socket:read()`). **NOTE**: when using
-  NGINX TSGI adapter, only `req:read(chunk)` is available.
-* `req:json()` - returns a Lua table from a JSON request.
-* `req:post_param(name)` - returns a single POST request a parameter value.
-  If `name` is `nil`, returns all parameters as a Lua table.
-* `req:query_param(name)` - returns a single GET request parameter value.
-  If `name` is `nil`, returns a Lua table with all arguments.
-* `req:param(name)` - any request parameter, either GET or POST.
-* `req:cookie(name)` - to get a cookie in the request.
-* `req:stash(name[, value])` - get or set a variable "stashed"
-  when dispatching a route.
-* `req:url_for(name, args, query)` - returns the route's exact URL.
-* `req:render({})` - create a **Response** object with a rendered template.
-* `req:redirect_to` - create a **Response** object with an HTTP redirect.
+| method | description |
+| ------ | ----------- |
+| `req:method()` | HTTP request type (`GET`, `POST` etc). |
+| `req:path()` | request path. |
+| `req:query()` | request arguments. |
+| `req:proto()` | HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`). |
+| `req:headers()` | normalized request headers. A normalized header. |
+| `req:header(name)` | value of header `name`. |
+| `req:peer()` | a Lua table with information about the remote peer (like `socket:peer()`).  **NOTE**: when router is being used with nginx adapter, `req:peer()` contains information on iproto connection with nginx, not the original HTTP user-agent. |
+| `tostring(req)` | returns a string representation of the request.
+| `req:request_line()` | returns the request body.
+| `req:read(delimiter\|chunk\|{delimiter = x, chunk = x}, timeout)` | reads the raw request body as a stream (see `socket:read()`). **NOTE**: when using NGINX TSGI adapter, only `req:read(chunk)` is available. |
+| `req:post_param(name)` | returns a single POST request a parameter value.  If `name` is `nil`, returns all parameters as a Lua table. |
+| `req:query_param(name)` | returns a single GET request parameter value.  If `name` is `nil`, returns a Lua table with all arguments. |
+| `req:param(name)` | any request parameter, either GET or POST. |
+| `req:cookie(name)` | to get a cookie in the request. |
+| `req:stash(name[, value])` | **NOTE**: currently not supported inside middleware handlers. Get or set a variable "stashed" when dispatching a route. |
+| `req:url_for(name, args, query)` | returns the route's exact URL.
+| `req:redirect_to` | create a **Response** object with an HTTP redirect.
+| `req:next()` | in middleware invokes remaining middleware chain and route handler and returns the response |
+| `req:hijack()` | terminates HTTP connection. Open TCP connection object is returned |
 
 ### Fields and methods of the Response object
 
-* `resp.status` - HTTP response code.
-* `resp.headers` - a Lua table with normalized headers.
-* `resp.body` - response body (string|table|wrapped\_iterator).
-* `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'))` -
-  adds `Set-Cookie` headers to `resp.headers`.
+| method | description |
+| ------ | ----------- |
+| `resp.status` | HTTP response code.
+| `resp.headers` | a Lua table with normalized headers.
+| `resp.body` | response body (string|table|wrapped\_iterator).
+| `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'))` | adds `Set-Cookie` headers to `resp.headers`.
 
 ### Examples
 
@@ -271,15 +249,6 @@ httpd:route(
     { path = '/:id/view', template = 'Hello, <%= user.name %>' }, hello)
 httpd:start()
 ```
-
-### Special stash names
-
-* `controller` - the controller name.
-* `action` - the handler name in the controller.
-* `format` - the current output format (e.g. `html`, `txt`). Is
-  detected automatically based on the request's `path` (for example, `/abc.js`
-  sets `format` to `js`). When producing a response, `format` is used
-  to serve the response's 'Content-type:'.
 
 ## Working with cookies
 
@@ -332,107 +301,107 @@ The table must contain the following fields:
   * `+1m` - 1 month (30 days)
   * `+1y` - 1 year (365 days)
 
-## Rendering a template
+## Middleware
 
-Lua can be used inside a response template, for example:
+tarantool/http v2 comes with improved middleware support:
+1. middleware functions control both HTTP request arrival and HTTP response
+return in the same function. As opposed to v1 functions `before_dispatch()`, `after_dispatch()`.
+2. filters on path and method: if request doesn't match path pattern or
+method, the middleware won't be invoked for this particular request.
+3. you can modify order of middleware execution by specifying relations
+between middlewares via optional `opts.after` / `opts.before` arrays on
+middleware creation (see below).
 
-```html
-<html>
-    <head>
-        <title><%= title %></title>
-    </head>
-    <body>
-        <ul>
-            % for i = 1, 10 do
-                <li><%= item[i].key %>: <%= item[i].value %></li>
-            % end
-        </ul>
-    </body>
-</html>
-```
+### `router:use(f, opts)`
 
-To embed Lua code into a template, use:
+#### Parameters
 
-* `<% lua-here %>` - insert any Lua code, including multi-line.
-  Can be used anywhere in the template.
-* `% lua-here` - a single-line Lua substitution. Can only be
-  present at the beginning of a line (with optional preceding spaces
-  and tabs, which are ignored).
+| parameter   | type   | description      |
+| ----------- | ------ | ---------------- |
+| `f` | response = function(req) | see explanation below |
+| `opts.path` | string | as in `route(f)` |
+| `opts.method` | string | as in `route()` |
+| `opts.preroute` | bool | when true, middleware will be invoked before routing |
+| `opts.name` | string | middleware name that is referred to when defining order between middleware.
+| `opts.before` | array of strings | middleware names that must be invoked before this middleware |
+| `opts.after` | array of strings | middleware names that must be invoked after this middleware |
+| `return-value` | bool | true, if middleware is added successfully, false otherwise |
 
-A few control characters may follow `%`:
+#### f
+`f` has the same signature as route handler.
 
-* `=` (e.g., `<%= value + 1 %>`) - runs the embedded Lua code
-  and inserts the result into HTML. Special HTML characters,
-  such as `<`, `>`, `&`, `"`, are escaped.
-* `==` (e.g., `<%== value + 10 %>`) - the same, but without
-  escaping.
+Inside `f` use `req:next()` to call next function, which can be
+another middleware handler or a terminating route handler.  
 
-A Lua statement inside the template has access to the following
-environment:
+**NOTE**: `req:stash()` is currently not working inside middleware handlers.
 
-1. Lua variables defined in the template,
-1. stashed variables,
-1. variables standing for keys in the `render` table.
+Alternatively, you can return response from `f` before calling
+`req:next()` (early exit), in this case the request will not be
+dispatched to the route handler.  
 
-## Template helpers
+This is convenient for example in authorization middleware functions,
+where you can exit with 403 Forbidden on authorization failure.
 
-Helpers are special functions that are available in all HTML
-templates. These functions must be defined when creating an `httpd` object.
+#### Ordering
 
-Setting or deleting a helper:
+By default, if you don't specify `before`/`after` options in `router:use()`,
+the order of invokation for any request is the **definition order** (of
+course, if some middleware is filtered-out, it won't be executed)
+
+If you need more complex order of execution between middleware handlers,
+you can do so by providing local execution order:
 
 ```lua
--- setting a helper
-httpd:helper('time', function(self, ...) return box.time() end)
--- deleting a helper
-httpd:helper('some_name', nil)
+local ok_b = router:use(b, {name = 'c', before = 'a'})
+local ok_a = router:use(a, {name = 'a'})
+local ok_c = router:use(c, {name = 'b', after = 'a'})
+-- order is a -> b -> c -> route-handler (where "->" is invokation via `req:next()`)
+
+local ok_d = router:use(d, {before = 'a', after = 'c'})
+assert(ok_d) -- FAIL: cannot satisfy order without breaking specified dependencies
 ```
 
-Using a helper inside an HTML template:
+Internally, in any time, a total-order of middleware is maintained.
+If upon adding new middleware such total-order becomes non-existing,
+the middleware addition is rejected.
 
-```html
-<div>
-    Current timestamp: <%= time() %>
-</div>
+#### Example
+```lua
+local users = require('myproject.users')
+
+local json = require('json')
+local digest = require('digest')
+
+local function basic_auth_handler(req)
+  local auth = req:header('authorization')
+  if not auth or not auth:find('Basic ') then
+    return {
+      status = 401,
+      body = json.encode({message = 'Missing Authorization Header'})
+    }
+  end
+
+  local base64_credentials = auth:split(' ')[2]
+  local credentials = digest.base64_decode(base64_credentials)
+  local username = credentials:split(':')[1]
+  local password = credentials:split(':')[2]
+
+  local user = users.authenticate(username, password)
+  if not user then
+    return {
+      status = 401,
+      body = json.encode({message = 'Invalid Authentication Credentials'})
+    }
+  end
+
+  req.user = user
+
+  return req:next()
+end
+
+local ok = router:use(basic_auth_handler, {
+  path = '/api/v1',  -- e.g. in API v2 a different
+                     -- authentication mechanism is used
+  method = 'ANY',
+})
 ```
-
-A helper function can receive arguments. The first argument is
-always the current controller. The rest is whatever is
-passed to the helper from the template.
-
-## Hooks
-
-It is possible to define additional functions invoked at various
-stages of request processing.
-
-### `handler(httpd, req)`
-
-If `handler` is present in `httpd` options, it gets
-involved on every HTTP request, and the built-in routing
-mechanism is unused (no other hooks are called in this case).
-
-### `before_dispatch(httpd, req)`
-
-Is invoked before a request is routed to a handler. The first
-argument of the hook is the HTTP request to be handled.
-The return value of the hook is ignored.
-
-This hook could be used to log a request, or modify request headers.
-
-### `after_dispatch(cx, resp)`
-
-Is invoked after a handler for a route is executed.
-
-The arguments of the hook are the request passed into the handler,
-and the response produced by the handler.
-
-This hook can be used to modify the response.
-The return value of the hook is ignored.
-
-## See also
-
- * [Tarantool project][Tarantool] on GitHub
- * [Tests][] for the `http` module
-
-[Tarantool]: http://github.com/tarantool/tarantool
-[Tests]: https://github.com/tarantool/http/tree/master/test
