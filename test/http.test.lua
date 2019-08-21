@@ -203,7 +203,7 @@ local function cfgserv()
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
                 function(cx) return cx:render({ title = 'title: 123' }) end)
-    httpd:set_handler(router)
+    httpd:set_router(router)
     return httpd, router
 end
 
@@ -323,8 +323,9 @@ test:test("server requests", function(test)
     --test:is(r.reason, 'Internal server error', 'die reason')
 
     router:route({ path = '/info' }, function(cx)
-            return cx:render({ json = cx.peer })
+            return cx:render({ json = cx:peer() })
     end)
+
     local r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
     test:is(r.host, '127.0.0.1', 'peer.host')
     test:isnumber(r.port, 'peer.port')
@@ -424,11 +425,11 @@ test:test("server requests", function(test)
             return {
                 headers = {},
                 body = json.encode({
-                        headers = req.headers,
-                        method = req.method,
-                        path = req.path,
-                        query = req.query,
-                        proto = req.proto,
+                        headers = req:headers(),
+                        method = req:method(),
+                        path = req:path(),
+                        query = req:query(),
+                        proto = req:proto(),
                         query_param_bar = req:query_param('bar'),
                 }),
                 status = 200,
@@ -534,10 +535,8 @@ test:test("server requests", function(test)
         -- 0. create a route (simplest) in which env:hijack() is called,
         --    and then do ping-pong.
         router:route({method = 'POST', path = '/upgrade'}, function(req)
-            local env = req.env
-
             -- intercept raw socket connection
-            local sock = env['tsgi.hijack']()
+            local sock = req:hijack()
             assert(sock ~= nil, 'hijacked socket is not empty')
 
             -- receive ping, send pong
@@ -603,9 +602,8 @@ test:test("middleware", function(test)
     test:plan(12)
     local httpd, router = cfgserv()
 
-    local add_helloworld_before_to_response = function(env)
-        local tsgi = require('http.tsgi')
-        local resp = tsgi.next(env)
+    local add_helloworld_before_to_response = function(req)
+        local resp = req:next()
 
         local lua_body = json.decode(resp.body)
         lua_body.message = 'hello world! (before)'
@@ -614,9 +612,8 @@ test:test("middleware", function(test)
         return resp
     end
 
-    local add_helloworld_to_response = function(env)
-        local tsgi = require('http.tsgi')
-        local resp = tsgi.next(env)
+    local add_helloworld_to_response = function(req)
+        local resp = req:next()
 
         local lua_body = json.decode(resp.body)
         lua_body.message = 'hello world!'
@@ -684,19 +681,18 @@ test:test("middleware", function(test)
     test:is(parsed_body.kind, 'apple', 'body is correct')
     test:is(parsed_body.message, 'hello world! (before)', 'hello_world middleware invoked last')
 
-    local function swap_orange_and_apple(env)
-        local path_info = env['PATH_INFO']
+    local function swap_orange_and_apple(req)
+        local path_info = req['PATH_INFO']
         local log = require('log')
         log.info('swap_orange_and_apple: path_info = %s', path_info)
 
         if path_info == '/fruits/orange' then
-            env['PATH_INFO'] = '/fruits/apple'
+            req['PATH_INFO'] = '/fruits/apple'
         elseif path_info == '/fruits/apple' then
-            env['PATH_INFO'] = '/fruits/orange'
+            req['PATH_INFO'] = '/fruits/orange'
         end
 
-        local tsgi = require('http.tsgi')
-        return tsgi.next(env)
+        return req:next()
     end
 
     ok = router:use(swap_orange_and_apple, {

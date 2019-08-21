@@ -6,6 +6,14 @@ local tsgi = require('http.tsgi')
 
 local json = require('json')
 
+local function request_set_router(self, router)
+    self[tsgi.KEY_ROUTER] = router
+end
+
+local function request_router(self)
+    return self[tsgi.KEY_ROUTER]
+end
+
 local function cached_query_param(self, name)
     if name == nil then
         return self.query_params
@@ -31,24 +39,24 @@ local function request_tostring(self)
 end
 
 local function request_line(self)
-    local rstr = self.env['PATH_INFO']
+    local rstr = self:path()
 
-    local query_string = self.env['QUERY_STRING']
+    local query_string = self:query()
     if  query_string ~= nil and query_string ~= '' then
         rstr = rstr .. '?' .. query_string
     end
 
     return utils.sprintf("%s %s %s",
-        self.env['REQUEST_METHOD'],
+        self['REQUEST_METHOD'],
         rstr,
-        self.env['SERVER_PROTOCOL'] or 'HTTP/?')
+        self['SERVER_PROTOCOL'] or 'HTTP/?')
 end
 
 local function query_param(self, name)
-    if self.env['QUERY_STRING'] ~= nil and string.len(self.env['QUERY_STRING']) == 0 then
+    if self:query() ~= nil and string.len(self:query()) == 0 then
         rawset(self, 'query_params', {})
     else
-        local params = lib.params(self.env['QUERY_STRING'])
+        local params = lib.params(self['QUERY_STRING'])
         local pres = {}
         for k, v in pairs(params) do
             pres[ utils.uri_unescape(k) ] = utils.uri_unescape(v)
@@ -62,13 +70,13 @@ end
 
 local function request_content_type(self)
     -- returns content type without encoding string
-    if self.env['HEADER_CONTENT-TYPE'] == nil then
+    if self['HEADER_CONTENT-TYPE'] == nil then
         return nil
     end
 
-    return string.match(self.env['HEADER_CONTENT-TYPE'],
+    return string.match(self['HEADER_CONTENT-TYPE'],
                         '^([^;]*)$') or
-        string.match(self.env['HEADER_CONTENT-TYPE'],
+        string.match(self['HEADER_CONTENT-TYPE'],
                      '^(.*);.*')
 end
 
@@ -116,11 +124,11 @@ local function param(self, name)
 end
 
 local function cookie(self, cookiename)
-    if self.env['HEADER_COOKIE'] == nil then
+    if self:header('cookie') == nil then
         return nil
     end
     for k, v in string.gmatch(
-        self.env['HEADER_COOKIE'], "([^=,; \t]+)=([^,; \t]+)") do
+        self:header('cookie'), "([^=,; \t]+)=([^,; \t]+)") do
         if k == cookiename then
             return utils.uri_unescape(v)
         end
@@ -171,14 +179,12 @@ local function request_json(req)
 end
 
 local function request_read(self, opts, timeout)
-    local env = self.env
-    return env['tsgi.input']:read(opts, timeout)  -- TODO: TSGI spec is violated
+    return self['tsgi.input']:read(opts, timeout)  -- TODO: TSGI spec is violated
 end
 
 local function request_read_cached(self)
     if self.cached_data == nil then
-        local env = self.env
-        local data = env['tsgi.input']:read()
+        local data = self['tsgi.input']:read()
         rawset(self, 'cached_data', data)
         return data
     else
@@ -186,8 +192,63 @@ local function request_read_cached(self)
     end
 end
 
+-------------------------------------
+local function request_peer(self)
+    return self[tsgi.KEY_PEER]
+end
+
+local function request_method(self)
+    return self['REQUEST_METHOD']
+end
+
+local function request_path(self)
+    return self['PATH_INFO']
+end
+
+local function request_query(self)
+    return self['QUERY_STRING']
+end
+
+local function request_proto(self)
+    -- parse SERVER_PROTOCOL which is 'HTTP/<maj>.<min>'
+    local maj = self['SERVER_PROTOCOL']:sub(-3, -3)
+    local min = self['SERVER_PROTOCOL']:sub(-1, -1)
+    return {
+        [1] = tonumber(maj),
+        [2] = tonumber(min),
+    }
+end
+
+local function request_headers(self)
+    local headers = {}
+    for name, value in pairs(tsgi.headers(self)) do
+        -- strip HEADER_ part and convert to lowercase
+        local converted_name = name:sub(8):lower()
+        headers[converted_name] = value
+    end
+    return headers
+end
+
+local function request_header(self, name)
+    name = 'HEADER_' .. name:upper()
+    return self[name]
+end
+
+----------------------------------
+
+local function request_next(self)
+    return tsgi.next(self)
+end
+
+local function request_hijack(self)
+    return self['tsgi.hijack']()
+end
+
 local metatable = {
     __index = {
+        router      = request_router,
+        set_router  = request_set_router,
+
         render      = fs.render,
         cookie      = cookie,
         redirect_to = redirect_to,
@@ -203,8 +264,37 @@ local metatable = {
         param       = param,
 
         read        = request_read,
-        json        = request_json
+        json        = request_json,
+
+        peer        = request_peer,
+        method      = request_method,
+        path        = request_path,
+        query       = request_query,
+        proto       = request_proto,
+        headers     = request_headers,
+        header      = request_header,
+
+        next        = request_next,
+        hijack      = request_hijack,
     },
     __tostring = request_tostring;
 }
-return {metatable = metatable}
+
+local function bless(request)
+    local mt = getmetatable(request)
+    if mt == nil then
+        return setmetatable(request, metatable)
+    end
+
+    -- merge to existing metatable
+    for name, value in pairs(metatable) do
+        if mt[name] ~= nil then
+            require('log').info('merge_metatable: name already set: ' .. name)
+        end
+        assert(mt[name] == nil)
+        mt[name] = value
+    end
+    return request
+end
+
+return {bless = bless}
