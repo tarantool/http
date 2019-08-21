@@ -1,7 +1,8 @@
 local fs = require('http.router.fs')
 local middleware = require('http.router.middleware')
 local matching = require('http.router.matching')
-local request_metatable = require('http.router.request').metatable
+
+local bless_request = require('http.router.request').bless
 
 local utils = require('http.utils')
 local tsgi = require('http.tsgi')
@@ -22,43 +23,11 @@ local function url_for_helper(tx, name, args, query)
     return tx:url_for(name, args, query)
 end
 
-local function request_from_env(env, router)  -- luacheck: ignore
-    -- TODO: khm... what if we have nginx tsgi?
-    -- we need to restrict ourselves to generic TSGI
-    -- methods and properties!
+local function main_endpoint_middleware(request)
+    local self = request:router()
+    local format = uri_file_extension(request:path(), 'html')
+    local r = request[tsgi.KEY_ROUTE]
 
-    local request = {
-        router = router,
-        env = env,
-        peer = env[tsgi.KEY_PEER],
-        method = env['REQUEST_METHOD'],
-        path = env['PATH_INFO'],
-        query = env['QUERY_STRING'],
-    }
-
-    -- parse SERVER_PROTOCOL which is 'HTTP/<maj>.<min>'
-    local maj = env['SERVER_PROTOCOL']:sub(-3, -3)
-    local min = env['SERVER_PROTOCOL']:sub(-1, -1)
-    request.proto = {
-        [1] = tonumber(maj),
-        [2] = tonumber(min),
-    }
-
-    request.headers = {}
-    for name, value in pairs(tsgi.headers(env)) do
-        -- strip HEADER_ part and convert to lowercase
-        local converted_name = name:sub(8):lower()
-        request.headers[converted_name] = value
-    end
-
-    return setmetatable(request, request_metatable)
-end
-
-local function main_endpoint_middleware(env)
-    local self = env[tsgi.KEY_ROUTER]
-    local format = uri_file_extension(env['PATH_INFO'], 'html')
-    local r = env[tsgi.KEY_ROUTE]
-    local request = request_from_env(env, self)
     if r == nil then
         return fs.static_file(self, request, format)
     end
@@ -70,8 +39,8 @@ end
 
 local function populate_chain_with_middleware(env, middleware_obj)
     local filter = matching.transform_filter({
-            path = env['PATH_INFO'],
-            method = env['REQUEST_METHOD']
+        path = env:path(),
+        method = env:method()
     })
     for _, m in pairs(middleware_obj:ordered()) do
         if matching.matches(m, filter) then
@@ -80,33 +49,38 @@ local function populate_chain_with_middleware(env, middleware_obj)
     end
 end
 
-local function dispatch_middleware(env)
-    local self = env[tsgi.KEY_ROUTER]
+local function dispatch_middleware(req)
+    local self = req:router()
 
-    local r = self:match(env['REQUEST_METHOD'], env['PATH_INFO'])
-    env[tsgi.KEY_ROUTE] = r
+    local r = self:match(req:method(), req:path())
+    req[tsgi.KEY_ROUTE] = r
 
-    populate_chain_with_middleware(env, self.middleware)
+    populate_chain_with_middleware(req, self.middleware)
 
     -- finally, add user specified handler
-    tsgi.push_back_handler(env, main_endpoint_middleware)
+    tsgi.push_back_handler(req, main_endpoint_middleware)
 
-    return tsgi.next(env)
+    return req:next()
 end
 
 local function router_handler(self, env)
-    env[tsgi.KEY_ROUTER] = self
+    -- attach a metatable with helper methods
+    -- to otherwise raw TSGI table
+    -- (e.g. to be able to write request:path() instead of request['PATH_INFO'])
+    local request = bless_request(env, self)
+
+    request:set_router(self)
 
     -- set-up middleware chain
-    tsgi.init_handlers(env)
+    tsgi.init_handlers(request)
 
-    populate_chain_with_middleware(env, self.preroute_middleware)
+    populate_chain_with_middleware(request, self.preroute_middleware)
 
     -- add routing
-    tsgi.push_back_handler(env, dispatch_middleware)
+    tsgi.push_back_handler(request, dispatch_middleware)
 
     -- execute middleware chain from first
-    return tsgi.next(env)
+    return request:next()
 end
 
 -- TODO: `route` is not route, but path...
