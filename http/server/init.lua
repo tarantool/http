@@ -98,7 +98,7 @@ local function process_client(self, s, peer)
         logreq("%s %s%s", p.method, p.path,
             p.query ~= "" and "?"..p.query or "")
 
-        local ok, resp = pcall(self.options.handler, env)
+        local ok, resp = pcall(self.options.router, env)
         env['tsgi.input']:read() -- skip remaining bytes of request body
         local status, body
 
@@ -286,7 +286,7 @@ local function httpd_start(self)
         error("httpd: usage: httpd:start()")
     end
 
-    assert(self.options.handler ~= nil, 'Router must be set before calling server:start()')
+    assert(self.options.router ~= nil, 'Router must be set before calling server:start()')
 
     local server = socket.tcp_server(self.host, self.port,
                                      { name = 'http',
@@ -304,8 +304,12 @@ local function httpd_start(self)
     return self
 end
 
-local function httpd_set_handler(self, router)
-    self.options.handler = router
+local function httpd_set_router(self, router)
+    self.options.router = router
+end
+
+local function httpd_router(self)
+    return self.options.router
 end
 
 local new = function(host, port, options)
@@ -317,20 +321,21 @@ local new = function(host, port, options)
     end
 
     local default = {
-        handler             = nil,   -- no router set-up initially
+        router              = nil,   -- no router set-up initially
         log_requests        = true,
         log_errors          = true,
         display_errors      = true,
     }
 
     local self = {
-        host    = host,
-        port    = port,
-        is_run  = false,
-        stop    = httpd_stop,
-        start   = httpd_start,
-        set_handler = httpd_set_handler,
-        options = utils.extend(default, options, true),
+        host       = host,
+        port       = port,
+        is_run     = false,
+        stop       = httpd_stop,
+        start      = httpd_start,
+        set_router = httpd_set_router,
+        router     = httpd_router,
+        options    = utils.extend(default, options, true),
     }
 
     return self

@@ -50,7 +50,7 @@ local function catfile(...)
 end
 
 local function static_file(self, request, format)
-    local file = catfile(self.options.app_dir, 'public', request.env['PATH_INFO'])
+    local file = catfile(self.options.app_dir, 'public', request:path())
 
     if self.options.cache_static and self.cache.static[ file ] ~= nil then
         return {
@@ -88,20 +88,20 @@ end
 local function ctx_action(tx)
     local ctx = tx.endpoint.controller
     local action = tx.endpoint.action
-    if tx.router.options.cache_controllers then
-        if tx.router.cache[ ctx ] ~= nil then
-            if type(tx.router.cache[ ctx ][ action ]) ~= 'function' then
+    if tx:router().options.cache_controllers then
+        if tx:router().cache[ ctx ] ~= nil then
+            if type(tx:router().cache[ ctx ][ action ]) ~= 'function' then
                 utils.errorf("Controller '%s' doesn't contain function '%s'",
                     ctx, action)
             end
-            return tx.router.cache[ ctx ][ action ](tx)
+            return tx:router().cache[ ctx ][ action ](tx)
         end
     end
 
     local ppath = package.path
-    package.path = catfile(tx.router.options.app_dir, 'controllers', '?.lua')
+    package.path = catfile(tx:router().options.app_dir, 'controllers', '?.lua')
                 .. ';'
-                .. catfile(tx.router.options.app_dir,
+                .. catfile(tx:router().options.app_dir,
                     'controllers', '?/init.lua')
     if ppath ~= nil then
         package.path = package.path .. ';' .. ppath
@@ -123,8 +123,8 @@ local function ctx_action(tx)
         utils.errorf("Controller '%s' doesn't contain function '%s'", ctx, action)
     end
 
-    if tx.router.options.cache_controllers then
-        tx.router.cache[ ctx ] = mod
+    if tx:router().options.cache_controllers then
+        tx:router().cache[ ctx ] = mod
     end
 
     return mod[action](tx)
@@ -178,10 +178,10 @@ local function render(tx, opts)
     local vars = {}
     if opts ~= nil then
         if opts.text ~= nil then
-            if tx.router.options.charset ~= nil then
+            if tx:router().options.charset ~= nil then
                 resp.headers['content-type'] =
                     utils.sprintf("text/plain; charset=%s",
-                        tx.router.options.charset
+                        tx:router().options.charset
                     )
             else
                 resp.headers['content-type'] = 'text/plain'
@@ -192,10 +192,10 @@ local function render(tx, opts)
 
         -- TODO
         if opts.json ~= nil then
-            if tx.router.options.charset ~= nil then
+            if tx:router().options.charset ~= nil then
                 resp.headers['content-type'] =
                     utils.sprintf('application/json; charset=%s',
-                        tx.router.options.charset
+                        tx:router().options.charset
                     )
             else
                 resp.headers['content-type'] = 'application/json'
@@ -222,7 +222,7 @@ local function render(tx, opts)
     if tx.endpoint.template ~= nil then
         tpl = tx.endpoint.template
     else
-        tpl = load_template(tx.router, tx.endpoint, format)
+        tpl = load_template(tx:router(), tx.endpoint, format)
         if tpl == nil then
             utils.errorf('template is not defined for the route')
         end
@@ -232,7 +232,7 @@ local function render(tx, opts)
         tpl = tpl()
     end
 
-    for hname, sub in pairs(tx.router.helpers) do
+    for hname, sub in pairs(tx:router().helpers) do
         vars[hname] = function(...) return sub(tx, ...) end
     end
     vars.action = tx.endpoint.action
@@ -242,10 +242,10 @@ local function render(tx, opts)
     resp.body = lib.template(tpl, vars)
     resp.headers['content-type'] = type_by_format(format)
 
-    if tx.router.options.charset ~= nil then
+    if tx:router().options.charset ~= nil then
         if format == 'html' or format == 'js' or format == 'json' then
             resp.headers['content-type'] = resp.headers['content-type']
-                .. '; charset=' .. tx.router.options.charset
+                .. '; charset=' .. tx:router().options.charset
         end
     end
     return resp
