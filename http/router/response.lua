@@ -41,14 +41,14 @@ local function setcookie(resp, cookie)
 
     local str = utils.sprintf('%s=%s', name, utils.uri_escape(value))
     if cookie.path ~= nil then
-        str = utils.sprintf('%s;path=%s', str, utils.uri_escape(cookie.path))
+        str = utils.sprintf('%s;path=%s', str, cookie.path)
     end
     if cookie.domain ~= nil then
         str = utils.sprintf('%s;domain=%s', str, cookie.domain)
     end
 
     if cookie.expires ~= nil then
-        str = utils.sprintf('%s;expires="%s"', str, expires_str(cookie.expires))
+        str = utils.sprintf('%s;expires=%s', str, expires_str(cookie.expires))
     end
 
     if not resp.headers then
