@@ -29,3 +29,32 @@ set_tests_properties(http PROPERTIES ENVIRONMENT "${LUA_PATH};${LUA_SOURCE_DIR}"
 add_custom_target(check
     WORKING_DIRECTORY ${PROJECT_BUILD_DIR}
     COMMAND ctest -V)
+
+## VERSION ####################################################################
+###############################################################################
+
+execute_process(
+  COMMAND git describe --tags --always
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  OUTPUT_VARIABLE GIT_DESCRIBE
+  ERROR_QUIET
+)
+
+if (NOT GIT_DESCRIBE)
+  set(GIT_DESCRIBE "unknown")
+endif()
+
+configure_file (
+  "${PROJECT_SOURCE_DIR}/http/VERSION.lua.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/VERSION.lua"
+)
+
+
+## Install ####################################################################
+###############################################################################
+
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/VERSION.lua
+  DESTINATION ${TARANTOOL_INSTALL_LUADIR}/${PROJECT_NAME}/
+)
