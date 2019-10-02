@@ -10,7 +10,8 @@ description = {
     license  = 'BSD',
 }
 dependencies = {
-    'lua >= 5.1'
+    'lua >= 5.1',
+    'checks >= 3.0.1'
 }
 external_dependencies = {
     TARANTOOL = {
@@ -36,7 +37,6 @@ build = {
         ['http.router.middleware'] = 'http/router/middleware.lua',
         ['http.router.request'] = 'http/router/request.lua',
         ['http.router.response'] = 'http/router/response.lua',
-        ['http.router.trie'] = 'http/router/trie.lua',
         ['http.tsgi'] = 'http/tsgi.lua',
         ['http.utils'] = 'http/utils.lua',
         ['http.mime_types'] = 'http/mime_types.lua',
