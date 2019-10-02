@@ -3,7 +3,7 @@ set -e
 echo "Builtin server"
 echo "--------------------"
 echo ""
-SERVER_TYPE=builtin ./test/http.test.lua
+SERVER_TYPE=builtin ./.rocks/bin/luatest
 
 echo "Nginx server"
 echo "--------------------"

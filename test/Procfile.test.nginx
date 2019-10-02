@@ -1,2 +1,2 @@
 nginx: nginx -g "daemon off;" -c $PWD/test/nginx.conf
-nginx_tsgi_test: SERVER_TYPE=nginx ./test/http.test.lua 2>&1
+nginx_tsgi_test: SERVER_TYPE=nginx ./.rocks/bin/luatest 2>&1
