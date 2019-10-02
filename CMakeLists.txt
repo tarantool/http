@@ -21,7 +21,7 @@ enable_testing()
 set (LUA_PATH "LUA_PATH=${PROJECT_SOURCE_DIR}/?.lua\\;${PROJECT_SOURCE_DIR}/?/init.lua\\;\\;")
 set (LUA_SOURCE_DIR "LUA_SOURCE_DIR=${PROJECT_SOURCE_DIR}")
 
-add_test(http ${CMAKE_SOURCE_DIR}/test/http.test.lua)
+add_test(http ${CMAKE_SOURCE_DIR}/.rocks/bin/luatest)
 
 set_tests_properties(http PROPERTIES ENVIRONMENT "${LUA_PATH};${LUA_SOURCE_DIR}")
 
