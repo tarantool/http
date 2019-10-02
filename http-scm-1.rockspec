@@ -20,28 +20,13 @@ external_dependencies = {
     }
 }
 build = {
-    type = 'builtin',
+    type = 'cmake',
 
-    modules = {
-        ['http.lib'] = {
-            sources = 'http/lib.c',
-            incdirs = {
-                "$(TARANTOOL_INCDIR)"
-            }
-        },
-        ['http.server'] = 'http/server/init.lua',
-        ['http.server.tsgi_adapter'] = 'http/server/tsgi_adapter.lua',
-        ['http.nginx_server'] = 'http/nginx_server/init.lua',
-        ['http.router'] = 'http/router/init.lua',
-        ['http.router.fs'] = 'http/router/fs.lua',
-        ['http.router.matching'] = 'http/router/matching.lua',
-        ['http.router.middleware'] = 'http/router/middleware.lua',
-        ['http.router.request'] = 'http/router/request.lua',
-        ['http.router.response'] = 'http/router/response.lua',
-        ['http.tsgi'] = 'http/tsgi.lua',
-        ['http.utils'] = 'http/utils.lua',
-        ['http.mime_types'] = 'http/mime_types.lua',
-        ['http.codes'] = 'http/codes.lua',
+    variables = {
+        version = 'scm-1',
+        TARANTOOL_DIR = '$(TARANTOOL_DIR)',
+        TARANTOOL_INSTALL_LIBDIR = '$(LIBDIR)',
+        TARANTOOL_INSTALL_LUADIR = '$(LUADIR)',
     }
 }
 

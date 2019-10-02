@@ -10,6 +10,11 @@ local errno = require('errno')
 
 local DETACHED = 101
 
+local ok, VERSION = pcall(require, 'http.VERSION')
+if not ok then
+    VERSION = 'unknown'
+end
+
 ---------
 -- Utils
 ---------
@@ -342,6 +347,7 @@ local new = function(host, port, options)
 end
 
 return {
+    VERSION = VERSION,
     DETACHED = DETACHED,
     new = new,
 }
