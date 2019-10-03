@@ -1,6 +1,6 @@
 local tsgi = require('http.tsgi')
 
-require('checks')
+local checks = require('checks')
 local json = require('json')
 local log = require('log')
 
@@ -11,7 +11,7 @@ local function convert_headername(name)
 end
 
 local function tsgi_input_read(self, n)
-    checks('table', '?number')              -- luacheck: ignore
+    checks('table', '?number')
 
     local start = self._pos
     local last
@@ -33,7 +33,7 @@ end
 
 local function make_env(server, req)
     -- NGINX Tarantool Upstream `parse_query` option must NOT be set.
-    local uriparts = string.split(req.uri, '?')  -- luacheck: ignore
+    local uriparts = string.split(req.uri, '?')
     local path_info, query_string = uriparts[1], uriparts[2]
 
     local body = ''
@@ -41,8 +41,8 @@ local function make_env(server, req)
         body = json.decode(req.body).params
     end
 
-    local hostport = box.session.peer(box.session.id())  -- luacheck: ignore
-    local hostport_parts = string.split(hostport, ':')   -- luacheck: ignore
+    local hostport = box.session.peer(box.session.id())
+    local hostport_parts = string.split(hostport, ':')
     local peer_host, peer_port = hostport_parts[1], tonumber(hostport_parts[2])
 
     local env = {
@@ -98,7 +98,7 @@ local function make_env(server, req)
     return env
 end
 
-local function generic_entrypoint(server, req, ...) -- luacheck: ignore
+local function generic_entrypoint(server, req, ...)
     local env = make_env(server, req, ...)
 
     local ok, resp = pcall(server.router_obj, env)
@@ -150,7 +150,7 @@ local function generic_entrypoint(server, req, ...) -- luacheck: ignore
 end
 
 local function ngxserver_set_router(self, router)
-    checks('table', 'function|table')         -- luacheck: ignore
+    checks('table', 'function|table')
 
     self.router_obj = router
 end
@@ -160,7 +160,7 @@ local function ngxserver_router(self)
 end
 
 local function ngxserver_start(self)
-    checks('table')                  -- luacheck: ignore
+    checks('table')
 
     rawset(_G, self.tnt_method, function(...)
         return generic_entrypoint(self, ...)
@@ -168,13 +168,13 @@ local function ngxserver_start(self)
 end
 
 local function ngxserver_stop(self)
-    checks('table')                  -- luacheck: ignore
+    checks('table')
 
     rawset(_G, self.tnt_method, nil)
 end
 
 local function new(opts)
-    checks({                         -- luacheck: ignore
+    checks({
         host = 'string',
         port = 'number',
         tnt_method = 'string',

@@ -1,6 +1,6 @@
 local tsgi = require('http.tsgi')
 
-require('checks')
+local checks = require('checks')
 
 local function tsgi_hijack(env)
     env[tsgi.KEY_IS_HIJACKED] = true
@@ -15,7 +15,7 @@ end
 -- if opts is number, it specifies number of bytes to be read
 -- if opts is a table, it specifies options
 local function tsgi_input_read(self, opts, timeout)
-    checks('table', '?number|string|table', '?number') -- luacheck: ignore
+    checks('table', '?number|string|table', '?number')
     local env = self._env
 
     local remaining = env[tsgi.KEY_REMAINING]
