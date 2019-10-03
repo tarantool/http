@@ -29,8 +29,8 @@ package.loaded['io'].write = function(...)
 end
 
 g.before_all = function()
-    box.cfg{listen = '127.0.0.1:3301'}  -- luacheck: ignore
-    box.schema.user.grant(              -- luacheck: ignore
+    box.cfg{listen = '127.0.0.1:3301'}
+    box.schema.user.grant(
         'guest', 'read,write,execute', 'universe', nil, {if_not_exists = true}
     )
 end
