@@ -7,7 +7,7 @@ local bless_request = require('http.router.request').bless
 local utils = require('http.utils')
 local tsgi = require('http.tsgi')
 
-require('checks')
+local checks = require('checks')
 
 local function uri_file_extension(s, default)
     -- cut from last dot till the end
@@ -130,7 +130,7 @@ local function url_for_route(r, args, query)
         args = {}
     end
     local name = r.path
-    for i, sn in pairs(r.stash) do
+    for _, sn in pairs(r.stash) do
         local sv = args[sn]
         if sv == nil then
             sv = ''
@@ -167,7 +167,7 @@ local possible_methods = {
 }
 
 local function use_middleware(self, handler, opts)
-    checks('table', 'function', {  -- luacheck: ignore
+    checks('table', 'function', {
         path = '?string',
         method = '?string|table',
         name = '?string',
@@ -175,7 +175,7 @@ local function use_middleware(self, handler, opts)
         before = '?string|table',
         after = '?string|table',
     })
-    local opts = table.deepcopy(opts)   -- luacheck: ignore
+    local opts = table.deepcopy(opts)
     opts.handler = handler
 
     local uuid = require('uuid')

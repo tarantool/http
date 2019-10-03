@@ -1,7 +1,7 @@
 local utils = require('http.utils')
 
 local function transform_filter(filter)
-    local path = filter.path  -- luacheck: ignore
+    local path = filter.path
     -- route must have '/' at the begin and end
     if string.match(path, '.$') ~= '/' then
         path = path .. '/'
