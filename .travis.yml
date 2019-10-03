@@ -2,146 +2,92 @@ sudo: false
 language: C
 services:
   - docker
+dist: xenial
 
 cache:
-    directories:
-      - $HOME/.cache
+  directories:
+    - $HOME/.cache
 
 git:
-    depth: 100500
+  depth: 100500
 
 env:
-    global:
-      - PRODUCT=tarantool-http
+  global:
+    - PRODUCT=tarantool-http
 
-    matrix:
-      - OS=el DIST=6
-      - OS=el DIST=7
-      - OS=fedora DIST=26
-      - OS=fedora DIST=27
-      - OS=fedora DIST=28
-      - OS=fedora DIST=29
-      - OS=ubuntu DIST=trusty
-      - OS=ubuntu DIST=xenial
-      - OS=ubuntu DIST=bionic
-      - OS=ubuntu DIST=cosmic
-      - OS=debian DIST=jessie
-      - OS=debian DIST=stretch
+_test: &test
+  before_install:
+    - curl http://download.tarantool.org/tarantool/$TARANTOOL_VERSION/gpgkey | sudo apt-key add -
+    - echo "deb http://download.tarantool.org/tarantool/$TARANTOOL_VERSION/ubuntu/ xenial main" |
+      sudo tee /etc/apt/sources.list.d/tarantool.list
+    - sudo apt-get -y update
+    - sudo apt-get install -y tarantool tarantool-dev
+    - tarantoolctl rocks make
+    - tarantoolctl rocks install luatest 0.2.2
+  script: .rocks/bin/luatest
 
-script:
-  - git describe --long
-  - git clone https://github.com/packpack/packpack.git packpack
-  - packpack/packpack
+_deploy: &deploy
+  provider: packagecloud
+  username: tarantool
+  token: ${PACKAGECLOUD_TOKEN}
+  dist: ${OS}/${DIST}
+  package_glob: build/*.{deb,rpm}
+  skip_cleanup: true
+  on:
+    branch: master
+    condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
 
-before_deploy:
-  - ls -l build/
+_packpack: &packpack
+  stage: deploy
+  script:
+    - git describe --long
+    - git clone https://github.com/packpack/packpack.git packpack
+    - packpack/packpack
+    - ls -l build/
+  deploy:
+    # Deploy packages to PackageCloud
+    - <<: *deploy
+      repository: "1_7"
+    - <<: *deploy
+      repository: "1_9"
+    - <<: *deploy
+      repository: "1_10"
+    - <<: *deploy
+      repository: "2x"
+    - <<: *deploy
+      repository: "2_2"
 
-deploy:
-  # Deploy packages to PackageCloud from master branch
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_7"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_9"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_10"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "2x"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "2_2"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      branch: master
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  # Deploy packages to PackageCloud from tags
-  # see:
-  #   * https://github.com/tarantool/tarantool/issues/3745
-  #   * https://github.com/travis-ci/travis-ci/issues/7780#issuecomment-302389370
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_7"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_9"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "1_10"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "2x"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
-  - provider: packagecloud
-    username: tarantool
-    repository: "2_2"
-    token: ${PACKAGECLOUD_TOKEN}
-    dist: ${OS}/${DIST}
-    package_glob: build/*.{deb,rpm}
-    skip_cleanup: true
-    on:
-      tags: true
-      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+jobs:
+  include:
+    - <<: *test
+      env: TARANTOOL_VERSION=1.10
+    - <<: *test
+      env: TARANTOOL_VERSION=2x
+
+    - <<: *packpack
+      env: OS=el DIST=6
+    - <<: *packpack
+      env: OS=el DIST=7
+    - <<: *packpack
+      env: OS=fedora DIST=26
+    - <<: *packpack
+      env: OS=fedora DIST=27
+    - <<: *packpack
+      env: OS=fedora DIST=28
+    - <<: *packpack
+      env: OS=fedora DIST=29
+    - <<: *packpack
+      env: OS=ubuntu DIST=trusty
+    - <<: *packpack
+      env: OS=ubuntu DIST=xenial
+    - <<: *packpack
+      env: OS=ubuntu DIST=bionic
+    - <<: *packpack
+      env: OS=ubuntu DIST=cosmic
+    - <<: *packpack
+      env: OS=debian DIST=jessie
+    - <<: *packpack
+      env: OS=debian DIST=stretch
 
 notifications:
   email:
