@@ -22,7 +22,7 @@ end
 local test = tap.test("http")
 test:plan(1)
 
-test:test("ordering", function(test)  -- luacheck: ignore
+test:test("ordering", function(test)
   test:plan(7)
 
   local middleware = middleware_module.new()

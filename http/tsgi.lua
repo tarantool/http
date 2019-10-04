@@ -18,7 +18,7 @@ local KEY_MIDDLEWARE_CALLCHAIN_TABLE = 'tarantool.middleware.callchain_table'
 local function headers(env)
     local map = {}
     for name, value in pairs(env) do
-        if string.startswith(name, 'HEADER_') then  -- luacheck: ignore
+        if string.startswith(name, 'HEADER_') then
             map[name] = value
         end
     end

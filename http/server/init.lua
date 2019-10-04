@@ -10,6 +10,11 @@ local errno = require('errno')
 
 local DETACHED = 101
 
+local ok, VERSION = pcall(require, 'http.VERSION')
+if not ok then
+    VERSION = 'unknown'
+end
+
 ---------
 -- Utils
 ---------
@@ -23,8 +28,8 @@ local function normalize_headers(hdrs)
 end
 
 local function headers_ended(hdrs)
-    return string.endswith(hdrs, "\n\n")      -- luacheck: ignore
-        or string.endswith(hdrs, "\r\n\r\n")  -- luacheck: ignore
+    return string.endswith(hdrs, "\n\n")
+        or string.endswith(hdrs, "\r\n\r\n")
 end
 
 ----------
@@ -176,7 +181,7 @@ local function process_client(self, s, peer)
         end
 
         if hdrs.server == nil then
-            hdrs.server = utils.sprintf('Tarantool http (tarantool v%s)', _TARANTOOL)  -- luacheck: ignore
+            hdrs.server = utils.sprintf('Tarantool http (tarantool v%s)', _TARANTOOL)
         end
 
         -- handle even more response headers
@@ -234,7 +239,7 @@ local function process_client(self, s, peer)
             if not s:write(response) then
                 break
             end
-            response = nil  -- luacheck: ignore
+            response = nil  -- luacheck: ignore 311
             -- Transfer-Encoding: chunked
             for _, part in gen, param, state do
                 part = tostring(part)
@@ -342,6 +347,7 @@ local new = function(host, port, options)
 end
 
 return {
+    VERSION = VERSION,
     DETACHED = DETACHED,
     new = new,
 }
