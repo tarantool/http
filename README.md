@@ -112,12 +112,8 @@ server = require('http.server').new(host, port[, { options } ])
   needed).
 * `display_errors` - return application errors and backtraces to the client
   (like PHP).
-* `log_requests` - log incoming requests. This parameter can receive:
-    - function value, supporting C-style formatting: log_requests(fmt, ...), where fmt is a format string and ... is Lua Varargs, holding arguments to be replaced in fmt.
-    - boolean value, where `true` choose default `log.info` and `false` disable request logs at all.
-
-  By default uses `log.info` function for requests logging.
-* `log_errors` - same as the `log_requests` option but is used for error messages logging. By default uses `log.error()` function.
+* `log_errors` - log application errors using `log.error()`.
+* `log_requests` - log incoming requests.
 
 ## Creating a router
 
