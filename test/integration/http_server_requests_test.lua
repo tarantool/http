@@ -160,6 +160,33 @@ g.test_GET_and_POST = function()
     t.assert_equals(r.body, 'POST = test', 'POST reply')
 end
 
+-- test GET parameters.
+g.test_GET_params = function()
+    local httpd = g.httpd
+
+    local r = httpd:route({
+        method = 'GET',
+        path = '/param',
+        file = 'helper.html.el'
+    }, function(tx)
+        local params = ""
+        for k,v in pairs(tx:param()) do
+            params = params .. k .. "=" .. v
+        end
+        return tx:render({text = params .. tx:read()})
+    end)
+    t.assert_type(r, 'table', 'add GET method')
+
+    r = http_client.request('GET', helpers.base_uri .. '/param?a=1')
+    t.assert_equals(r.body, 'a=1', 'GET reply parameter')
+
+    r = http_client.request('GET', helpers.base_uri .. '/param?a+a=1')
+    t.assert_equals(r.body, 'a a=1', 'GET reply parameter name with plus')
+
+    r = http_client.request('GET', helpers.base_uri .. '/param?a=1+1')
+    t.assert_equals(r.body, 'a=1 1', 'GET reply parameter value with plus')
+end
+
 g.test_DELETE = function()
     local httpd = g.httpd
     local r = httpd:route({
