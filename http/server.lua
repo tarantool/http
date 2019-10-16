@@ -186,7 +186,7 @@ local function query_param(self, name)
             local params = lib.params(self.query)
             local pres = {}
             for k, v in pairs(params) do
-                pres[ uri_unescape(k) ] = uri_unescape(v)
+                pres[ uri_unescape(k, true) ] = uri_unescape(v, true)
             end
             rawset(self, 'query_params', pres)
         end
