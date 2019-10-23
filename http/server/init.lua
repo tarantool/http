@@ -10,9 +10,9 @@ local errno = require('errno')
 
 local DETACHED = 101
 
-local ok, VERSION = pcall(require, 'http.VERSION')
-if not ok then
-    VERSION = 'unknown'
+local VERSION = 'unknown'
+if package.search('http.VERSION') then
+    VERSION = require('http.VERSION')
 end
 
 ---------
@@ -239,7 +239,6 @@ local function process_client(self, s, peer)
             if not s:write(response) then
                 break
             end
-            response = nil  -- luacheck: ignore 311
             -- Transfer-Encoding: chunked
             for _, part in gen, param, state do
                 part = tostring(part)

@@ -28,7 +28,7 @@ local function catfile(...)
         return
     end
 
-    for i, pe in pairs(sp) do
+    for _, pe in pairs(sp) do
         if path == nil then
             path = pe
         elseif string.match(path, '.$') ~= '/' then

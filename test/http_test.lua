@@ -2,7 +2,6 @@
 
 local t = require('luatest')
 local g = t.group('http')
-local tap = require('tap')
 local fio = require('fio')
 local http_lib = require('http.lib')
 local http_client = require('http.client')
@@ -57,8 +56,12 @@ g.test_split_uri = function()
     check('http://abc:123?', { scheme = 'http', host = 'abc', service = '123'})
     check('http://abc:123?query', { scheme = 'http', host = 'abc',
                                     service = '123', query = 'query'})
-    check('http://domain.subdomain.com:service?query', { scheme = 'http',
-                                                         host = 'domain.subdomain.com', service = 'service', query = 'query'})
+    check('http://domain.subdomain.com:service?query', {
+        scheme = 'http',
+        host = 'domain.subdomain.com',
+        service = 'service',
+        query = 'query',
+    })
     check('google.com', { host = 'google.com'})
     check('google.com?query', { host = 'google.com', query = 'query'})
     check('google.com/abc?query', { host = 'google.com', path = '/abc',
@@ -99,12 +102,12 @@ g.test_template = function()
         tt[i] = string.rep('#', i)
     end
 
-    local rendered, code = http_lib.template(template, { t = tt })
+    local rendered = http_lib.template(template, { t = tt })
     t.assertTrue(#rendered > 10000, "rendered size")
     t.assertEquals(rendered:sub(#rendered - 7, #rendered - 1), "</html>", "rendered eof")
 end
 
-g.test_parse_request = function(test)
+g.test_parse_request = function()
 
     t.assertEquals(http_lib._parse_request('abc'),
                    { error = 'Broken request line', headers = {} }, 'broken request')
@@ -138,7 +141,7 @@ g.test_parse_request = function(test)
     )
 end
 
-g.test_params = function(test)
+g.test_params = function()
     t.assertEquals(http_lib.params(), {}, 'nil string')
     t.assertEquals(http_lib.params(''), {}, 'empty string')
     t.assertEquals(http_lib.params('a'), {a = ''}, 'separate literal')
@@ -197,7 +200,7 @@ local function cfgserv()
         :route({path = '/aba*def'}, function() end)
         :route({path = '/abb*def/cde', name = 'star'}, function() end)
         :route({path = '/banners/:token'})
-        :helper('helper_title', function(self, a) return 'Hello, ' .. a end)
+        :helper('helper_title', function(_, a) return 'Hello, ' .. a end)
         :route({path = '/helper', file = 'helper.html.el'})
         :route({ path = '/test', file = 'test.html.el' },
             function(cx) return cx:render({ title = 'title: 123' }) end)
@@ -205,7 +208,7 @@ local function cfgserv()
     return httpd, router
 end
 
-g.test_server_url_match = function(test)
+g.test_server_url_match = function()
     local httpd, router = cfgserv()
     t.assertIsTable(httpd, "httpd object")
     t.assertIsNil(router:match('GET', '/'))
@@ -241,7 +244,7 @@ end
 
 
 g.test_server_url_for = function()
-    local httpd, router = cfgserv()
+    local _, router = cfgserv()
     t.assertEquals(router:url_for('abcdef'), '/abcdef', '/abcdef')
     t.assertEquals(router:url_for('test'), '/abc//', '/abc//')
     t.assertEquals(router:url_for('test', { cde = 'cde_v', def = 'def_v' }),
@@ -264,17 +267,17 @@ g.test_server_requests = function()
     t.assertEquals(r.reason, 'Ok', '/test reason')
     t.assertEquals(string.match(r.body, 'title: 123'), 'title: 123', '/test body')
 
-    local r = http_client.get('http://127.0.0.1:12345/test404')
+    r = http_client.get('http://127.0.0.1:12345/test404')
     t.assertEquals(r.status, 404, '/test404 code')
     -- broken in built-in tarantool/http
     --t.assertEquals(r.reason, 'Not found', '/test404 reason')
 
-    local r = http_client.get('http://127.0.0.1:12345/absent')
+    r = http_client.get('http://127.0.0.1:12345/absent')
     t.assertEquals(r.status, 500, '/absent code')
     --t.assertEquals(r.reason, 'Internal server error', '/absent reason')
     t.assertEquals(string.match(r.body, 'load module'), 'load module', '/absent body')
 
-    local r = http_client.get('http://127.0.0.1:12345/ctxaction')
+    r = http_client.get('http://127.0.0.1:12345/ctxaction')
     t.assertEquals(r.status, 200, '/ctxaction code')
     t.assertEquals(r.reason, 'Ok', '/ctxaction reason')
     t.assertEquals(string.match(r.body, 'Hello, Tarantool'), 'Hello, Tarantool',
@@ -284,29 +287,29 @@ g.test_server_requests = function()
     t.assertEquals(string.match(r.body, 'controller: module[.]controller'),
                    'controller: module.controller', '/ctxaction body controller')
 
-    local r = http_client.get('http://127.0.0.1:12345/ctxaction.invalid')
+    r = http_client.get('http://127.0.0.1:12345/ctxaction.invalid')
     t.assertEquals(r.status, 404, '/ctxaction.invalid code') -- WTF?
     --t.assertEquals(r.reason, 'Not found', '/ctxaction.invalid reason')
     --t.assertEquals(r.body, '', '/ctxaction.invalid body')
 
-    local r = http_client.get('http://127.0.0.1:12345/hello.html')
+    r = http_client.get('http://127.0.0.1:12345/hello.html')
     t.assertEquals(r.status, 200, '/hello.html code')
     t.assertEquals(r.reason, 'Ok', '/hello.html reason')
     t.assertEquals(string.match(r.body, 'static html'), 'static html',
                    '/hello.html body')
 
-    local r = http_client.get('http://127.0.0.1:12345/absentaction')
+    r = http_client.get('http://127.0.0.1:12345/absentaction')
     t.assertEquals(r.status, 500, '/absentaction 500')
     --t.assertEquals(r.reason, 'Internal server error', '/absentaction reason')
     t.assertEquals(string.match(r.body, 'contain function'), 'contain function',
                    '/absentaction body')
 
-    local r = http_client.get('http://127.0.0.1:12345/helper')
+    r = http_client.get('http://127.0.0.1:12345/helper')
     t.assertEquals(r.status, 200, 'helper 200')
     t.assertEquals(r.reason, 'Ok', 'helper reason')
     t.assertEquals(string.match(r.body, 'Hello, world'), 'Hello, world', 'helper body')
 
-    local r = http_client.get('http://127.0.0.1:12345/helper?abc')
+    r = http_client.get('http://127.0.0.1:12345/helper?abc')
     t.assertEquals(r.status, 200, 'helper?abc 200')
     t.assertEquals(r.reason, 'Ok', 'helper?abc reason')
     t.assertEquals(string.match(r.body, 'Hello, world'), 'Hello, world', 'helper body')
@@ -314,7 +317,7 @@ g.test_server_requests = function()
     router:route({path = '/die', file = 'helper.html.el'},
         function() error(123) end )
 
-    local r = http_client.get('http://127.0.0.1:12345/die')
+    r = http_client.get('http://127.0.0.1:12345/die')
     t.assertEquals(r.status, 500, 'die 500')
     --t.assertEquals(r.reason, 'Internal server error', 'die reason')
 
@@ -322,11 +325,11 @@ g.test_server_requests = function()
             return cx:render({ json = cx:peer() })
     end)
 
-    local r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
+    r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
     t.assertEquals(r.host, '127.0.0.1', 'peer.host')
     t.assertIsNumber(r.port, 'peer.port')
 
-    local r = router:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
+    r = router:route({method = 'POST', path = '/dit', file = 'helper.html.el'},
         function(tx)
             return tx:render({text = 'POST = ' .. tx:read()})
     end)
@@ -376,7 +379,7 @@ g.test_server_requests = function()
     end)
 
     -- http client currently doesn't support chunked encoding
-    local r = http_client.get('http://127.0.0.1:12345/chunked')
+    r = http_client.get('http://127.0.0.1:12345/chunked')
     t.assertEquals(r.status, 200, 'chunked 200')
     t.assertEquals(r.headers['transfer-encoding'], 'chunked', 'chunked headers')
     t.assertEquals(r.body, 'chunkedencodingt\r\nest', 'chunked body')
@@ -389,7 +392,7 @@ g.test_server_requests = function()
                     text = ('foo=%s; baz=%s'):format(foo, baz)
             })
     end)
-    local r = http_client.get('http://127.0.0.1:12345/receive_cookie', {
+    r = http_client.get('http://127.0.0.1:12345/receive_cookie', {
                                   headers = {
                                       cookie = 'foo=bar; baz=feez',
                                   }
@@ -405,7 +408,7 @@ g.test_server_requests = function()
             resp:setcookie({ name = 'xxx', value = 'yyy' })
             return resp
     end)
-    local r = http_client.get('http://127.0.0.1:12345/cookie')
+    r = http_client.get('http://127.0.0.1:12345/cookie')
     t.assertEquals(r.status, 200, 'status')
     t.assertTrue(r.headers['set-cookie'] ~= nil, "header")
 
@@ -425,7 +428,7 @@ g.test_server_requests = function()
                 status = 200,
             }
     end)
-    local r = http_client.get(
+    r = http_client.get(
         'http://127.0.0.1:12345/check_req_properties?foo=1&bar=2', {
             headers = {
                 ['X-test-header'] = 'test-value'
@@ -475,7 +478,7 @@ g.test_server_requests = function()
     })
     t.assertEquals(r.status, 200, 'status')
 
-    local parsed_body = json.decode(r.body)
+    parsed_body = json.decode(r.body)
     t.assertEquals(parsed_body.request_line, 'POST /check_req_methods_for_json HTTP/1.1', 'req.request_line')
     t.assertEquals(parsed_body.read_cached, '{"kind": "json"}', 'json req:read_cached()')
     t.assertEquals(parsed_body.json, {kind = "json"}, 'req:json()')
@@ -491,7 +494,7 @@ g.test_server_requests = function()
 
     if is_builtin_test() then
         router:route({ path = '/post', method = 'POST'}, function(req)
-                local t = {
+                return req:render({json = {
                     #req:read("\n");
                     #req:read(10);
                     #req:read({ size = 10, delimiter = "\n"});
@@ -499,14 +502,13 @@ g.test_server_requests = function()
                     #req:read();
                     #req:read();
                     #req:read();
-                }
-                return req:render({json = t})
+                }})
         end)
         local bodyf = os.getenv('LUA_SOURCE_DIR') or './'
         bodyf = io.open(fio.pathjoin(bodyf, 'test/public/lorem.txt'))
         local body = bodyf:read('*a')
         bodyf:close()
-        local r = http_client.post('http://127.0.0.1:12345/post', body)
+        r = http_client.post('http://127.0.0.1:12345/post', body)
         t.assertEquals(r.status, 200, 'status')
         t.assertEquals(json.decode(r.body), { 541,10,10,458,1375,0,0 },
                        'req:read() results')
@@ -558,7 +560,7 @@ g.test_server_requests = function()
                 body = 'GET *',
             }
     end)
-    local r = http_client.get('http://127.0.0.1:12345/a/b/c')
+    r = http_client.get('http://127.0.0.1:12345/a/b/c')
     t.assertEquals(r.status, 200, '/a/b/c request returns 200')
     t.assertEquals(r.body, 'GET *', 'GET * matches')
 
@@ -568,7 +570,7 @@ g.test_server_requests = function()
                 body = 'ANY /a/:foo/:bar',
             }
     end)
-    local r = http_client.get('http://127.0.0.1:12345/a/b/c')
+    r = http_client.get('http://127.0.0.1:12345/a/b/c')
     t.assertEquals(r.status, 200, '/a/b/c request returns 200')
     t.assertEquals(
         r.body,
