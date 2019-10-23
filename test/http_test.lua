@@ -1,7 +1,6 @@
-#!/usr/bin/env tarantool
-
 local t = require('luatest')
 local g = t.group('http')
+
 local fio = require('fio')
 local http_lib = require('http.lib')
 local http_client = require('http.client')
@@ -10,22 +9,6 @@ local ngx_server = require('http.nginx_server')
 local http_router = require('http.router')
 local json = require('json')
 local urilib = require('uri')
-
--- fix tap and http logs interleaving.
---
--- tap module writes to stdout,
--- http-server logs to stderr.
--- this results in non-synchronized output.
---
--- somehow redirecting stdout to stderr doesn't
--- remove buffering of tap logs (at least on OSX).
--- Monkeypatching to the rescue!
-
-local orig_iowrite = io.write
-package.loaded['io'].write = function(...)
-    orig_iowrite(...)
-    io.flush()
-end
 
 g.before_all = function()
     box.cfg{listen = '127.0.0.1:3301'}
