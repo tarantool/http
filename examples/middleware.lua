@@ -5,7 +5,7 @@ local tsgi = require('http.tsgi')
 local json = require('json')
 local log = require('log')
 
-box.cfg{}  -- luacheck: ignore
+box.cfg{}
 
 local httpd = http_server.new('127.0.0.1', 12345, {
     log_requests = true,

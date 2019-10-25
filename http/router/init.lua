@@ -175,7 +175,7 @@ local function use_middleware(self, handler, opts)
         before = '?string|table',
         after = '?string|table',
     })
-    local opts = table.deepcopy(opts)
+    opts = table.deepcopy(opts)
     opts.handler = handler
 
     local uuid = require('uuid')

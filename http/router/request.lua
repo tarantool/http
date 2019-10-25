@@ -82,13 +82,13 @@ end
 
 local function post_param(self, name)
     local content_type = self:content_type()
-    if self:content_type() == 'multipart/form-data' then
+    if content_type == 'multipart/form-data' then
         -- TODO: do that!
         rawset(self, 'post_params', {})
-    elseif self:content_type() == 'application/json' then
+    elseif content_type == 'application/json' then
         local params = self:json()
         rawset(self, 'post_params', params)
-    elseif self:content_type() == 'application/x-www-form-urlencoded' then
+    elseif content_type == 'application/x-www-form-urlencoded' then
         local params = lib.params(self:read_cached())
         local pres = {}
         for k, v in pairs(params) do
@@ -136,8 +136,8 @@ local function cookie(self, cookiename)
     return nil
 end
 
-local function iterate(self, gen, param, state)
-    return setmetatable({ body = { gen = gen, param = param, state = state } },
+local function iterate(_, gen, gen_param, state)
+    return setmetatable({ body = { gen = gen, param = gen_param, state = state } },
         response.metatable)
 end
 
@@ -168,12 +168,12 @@ end
 
 local function request_json(req)
     local data = req:read_cached()
-    local s, json = pcall(json.decode, data)
+    local s, json_data = pcall(json.decode, data)
     if s then
-        return json
+        return json_data
     else
         error(utils.sprintf("Can't decode json in request '%s': %s",
-                            data, tostring(json)))
+                            data, tostring(json_data)))
         return nil
     end
 end
