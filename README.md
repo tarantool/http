@@ -5,7 +5,7 @@ align="right">
 
 # HTTP server for Tarantool 1.7.5+
 
-[![Build Status](https://travis-ci.org/tarantool/http.png?branch=tarantool-1.7)](https://travis-ci.org/tarantool/http)
+[![Build Status](https://travis-ci.org/tarantool/http.svg?branch=master)](https://travis-ci.org/tarantool/http)
 
 > **DISCLAIMER:** Any functionality not described here is subject to change
 > in backward incompatible fashion at any time. Don't rely on source code
