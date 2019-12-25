@@ -235,13 +235,13 @@ end
 ## Working with stashes
 
 ```lua
-function hello(self)
-    local id = self:stash('id')    -- here is :id value
+function hello(req)
+    local id = req:stash('id')    -- here is :id value
     local user = box.space.users:select(id)
     if user == nil then
-        return self:redirect_to('/users_not_found')
+        return req:redirect_to('/users_not_found')
     end
-    return self:render({ user = user  })
+    return req:render({ user = user  })
 end
 
 httpd = box.httpd.new('127.0.0.1', 8080)
@@ -255,15 +255,15 @@ httpd:start()
 To get a cookie, use:
 
 ```lua
-function show_user(self)
-    local uid = self:cookie('id')
+function show_user(req)
+    local uid = req:cookie('id')
 
     if uid ~= nil and string.match(uid, '^%d$') ~= nil then
         local user = box.select(users, 0, uid)
-        return self:render({ user = user })
+        return req:render({ user = user })
     end
 
-    return self:redirect_to('/login')
+    return req:redirect_to('/login')
 end
 ```
 
@@ -271,19 +271,19 @@ To set a cookie, use the `setcookie()` method of a response object and pass to
 it a Lua table defining the cookie to be set:
 
 ```lua
-function user_login(self)
-    local login = self:param('login')
-    local password = self:param('password')
+function user_login(req)
+    local login = req:param('login')
+    local password = req:param('password')
 
     local user = box.select(users, 1, login, password)
     if user ~= nil then
-        local resp = self:redirect_to('/')
+        local resp = req:redirect_to('/')
         resp:setcookie({ name = 'uid', value = user[0], expires = '+1y' })
         return resp
     end
 
     -- to login again and again and again
-    return self:redirect_to('/login')
+    return req:redirect_to('/login')
 end
 ```
 
