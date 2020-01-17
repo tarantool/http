@@ -238,6 +238,18 @@ g.test_server_url_for = function()
                    '/abb/def_v/cde?a=b&c=d', '/abb/def_v/cde?a=b&c=d')
 end
 
+g.test_redirect_to = function()
+    local server, router = cfgserv()
+    server:set_router(router)
+    server:start()
+    router:route({path = '/from', method = 'GET'}, function (req) return req:redirect_to('/to') end)
+    router:route({path = '/to', method = 'GET'}, function () return {body = "OK"} end)
+    local r = http_client.get('http://127.0.0.1:12345/from')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, "OK")
+    server:stop()
+end
+
 g.test_server_requests = function()
     local httpd, router = cfgserv()
     httpd:start()

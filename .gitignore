@@ -22,3 +22,4 @@ CTestTestfile.cmake
 *.xlog
 VERSION.lua
 .rocks
+.idea
