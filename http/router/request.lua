@@ -162,7 +162,7 @@ local function url_for_request(self, name, args, query)
     if name == 'current' then
         return self.endpoint:url_for(args, query)
     end
-    return self.router:url_for(name, args, query)
+    return self:router():url_for(name, args, query)
 end
 
 
