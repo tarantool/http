@@ -3,9 +3,11 @@ local tsgi_adapter = require('http.server.tsgi_adapter')
 local tsgi = require('http.tsgi')
 local lib = require('http.lib')
 local utils = require('http.utils')
+local http_router = require('http.router')
 
 local log = require('log')
 local socket = require('socket')
+local errors = require('errors')
 local errno = require('errno')
 
 local DETACHED = 101
@@ -316,6 +318,14 @@ local function httpd_router(self)
     return self.options.router
 end
 
+local function httpd_route(self, opts, handler)
+    errors.deprecate(
+        'Using http.server:route is deprecated, ' ..
+        'create http.router object and set it via http.server:set_router instead.'
+    )
+    self.options.router:route(opts, handler)
+end
+
 local new = function(host, port, options)
     if options == nil then
         options = {}
@@ -325,7 +335,7 @@ local new = function(host, port, options)
     end
 
     local default = {
-        router              = nil,   -- no router set-up initially
+        router              = http_router.new({}),   -- default router, using deprecated
         log_requests        = true,
         log_errors          = true,
         display_errors      = true,
@@ -340,6 +350,7 @@ local new = function(host, port, options)
         set_router = httpd_set_router,
         router     = httpd_router,
         options    = utils.extend(default, options, true),
+        route      = httpd_route,
     }
 
     return self

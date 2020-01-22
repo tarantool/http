@@ -12,6 +12,7 @@ description = {
 dependencies = {
     'lua >= 5.1',
     'checks >= 3.0.1',
+    'errors >= 2.1.2'
 }
 external_dependencies = {
     TARANTOOL = {

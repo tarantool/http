@@ -321,6 +321,17 @@ g.test_request_headers = function()
     server:stop()
 end
 
+g.test_server_route = function()
+    local httpd = http_server.new('127.0.0.1', 12345, {
+        log_requests = true,
+        log_errors = true
+    })
+    httpd:start()
+    httpd:route({path = '/test', method = 'GET'}, function () return  {body = 'test'} end)
+    local r = http_client.get('http://127.0.0.1:12345/test')
+    t.assert_equals(r.body, 'test')
+    httpd:stop()
+end
 
 
 g.test_server_requests = function()
