@@ -149,10 +149,10 @@ Route examples:
 '/ghi*path'         -- a route using an extended regular expression
 ```
 
-To configure a route, use the `route()` method of the `httpd` object:
+To configure a route, use the `route()` method of the `router` object:
 
 ```lua
-httpd:route({ path = '/objects', method = 'GET' }, handle3)
+router:route({ path = '/objects', method = 'GET' }, handle3)
 ...
 ```
 
@@ -206,6 +206,7 @@ end
 | `req:redirect_to` | create a **Response** object with an HTTP redirect.
 | `req:next()` | in middleware invokes remaining middleware chain and route handler and returns the response |
 | `req:hijack()` | terminates HTTP connection. Open TCP connection object is returned |
+| `req:json()`  | returns a Lua table from a JSON request. |
 
 ### Fields and methods of the Response object
 
