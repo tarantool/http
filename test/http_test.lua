@@ -250,6 +250,79 @@ g.test_redirect_to = function()
     server:stop()
 end
 
+g.test_request_method = function()
+    local server, router = cfgserv()
+    server:start()
+
+    router:route({path = '/method_old', method = 'GET'}, function (req) return  {body = req.method} end)
+    local r = http_client.get('http://127.0.0.1:12345/method_old')
+    t.assert_equals(r.body, "GET")
+    server:stop()
+end
+
+g.test_request_path = function()
+    local server, router = cfgserv()
+    server:set_router(router)
+    server:start()
+
+    router:route({path = '/path', method = 'GET'}, function (req) return  {body = req.path} end)
+    local r = http_client.get('http://127.0.0.1:12345/path')
+    t.assert_equals(r.body, "/path")
+    server:stop()
+end
+
+g.test_request_query = function()
+    local server, router = cfgserv()
+    server:set_router(router)
+    server:start()
+
+    router:route({path = '/query', method = 'GET'}, function (req) return  {body = req.query} end)
+    local r = http_client.get('http://127.0.0.1:12345/query?a=1&b=1&c=1')
+    t.assert_equals(r.body, "a=1&b=1&c=1")
+    server:stop()
+end
+
+g.test_request_proto = function()
+    local server, router = cfgserv()
+    server:set_router(router)
+    server:start()
+
+    router:route({path = '/proto', method = 'GET'}, function (req) return  {body = json.encode(req.proto)} end)
+    local r = http_client.get('http://127.0.0.1:12345/proto')
+    t.assert_equals(r.body, "[1,1]")
+    server:stop()
+end
+
+g.test_request_peer = function()
+    local server, router = cfgserv()
+    server:set_router(router)
+    server:start()
+
+    router:route({path = '/peer', method = 'GET'}, function (req) return  {body = json.encode(req.peer)} end)
+    local r = http_client.get('http://127.0.0.1:12345/peer')
+    local resp = json.decode(r.body)
+    t.assert_is_not(resp.host, nil)
+    t.assert_is_not(resp.family, nil)
+    t.assert_is_not(resp.port, nil)
+    server:stop()
+end
+
+g.test_request_headers = function()
+    local server, router = cfgserv()
+    server:set_router(router)
+    server:start()
+
+    router:route({path = '/headers', method = 'GET'}, function (req) return  {body = json.encode(req.headers)} end)
+    local r = http_client.get('http://127.0.0.1:12345/headers')
+    local resp = json.decode(r.body)
+    t.assert_is_not(resp.accept, nil)
+    t.assert_is_not(resp.connection, nil)
+    t.assert_is_not(resp.host, nil)
+    server:stop()
+end
+
+
+
 g.test_server_requests = function()
     local httpd, router = cfgserv()
     httpd:start()
@@ -317,7 +390,7 @@ g.test_server_requests = function()
     --t.assert_equals(r.reason, 'Internal server error', 'die reason')
 
     router:route({ path = '/info' }, function(cx)
-            return cx:render({ json = cx:peer() })
+            return cx:render({ json = cx.peer })
     end)
 
     r = json.decode(http_client.get('http://127.0.0.1:12345/info').body)
@@ -413,11 +486,11 @@ g.test_server_requests = function()
             return {
                 headers = {},
                 body = json.encode({
-                        headers = req:headers(),
-                        method = req:method(),
-                        path = req:path(),
-                        query = req:query(),
-                        proto = req:proto(),
+                        headers = req.headers,
+                        method = req.method,
+                        path = req.path,
+                        query = req.query,
+                        proto = req.proto,
                         query_param_bar = req:query_param('bar'),
                 }),
                 status = 200,
@@ -652,14 +725,14 @@ g.test_middleware = function()
     t.assert_equals(parsed_body.message, 'hello world! (before)', 'hello_world middleware invoked last')
 
     local function swap_orange_and_apple(req)
-        local path_info = req['PATH_INFO']
+        local path_info = req.path
         local log = require('log')
         log.info('swap_orange_and_apple: path_info = %s', path_info)
 
         if path_info == '/fruits/orange' then
-            req['PATH_INFO'] = '/fruits/apple'
+            req.path = '/fruits/apple'
         elseif path_info == '/fruits/apple' then
-            req['PATH_INFO'] = '/fruits/orange'
+            req.path = '/fruits/orange'
         end
 
         return req:next()

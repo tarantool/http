@@ -13,7 +13,7 @@ local httpd = http_server.new('127.0.0.1', 12345, {
 })
 
 local function swap_orange_and_apple(env)
-    local path_info = env['PATH_INFO']
+    local path_info = env['path']
     log.info('swap_orange_and_apple: path_info = %s', path_info)
     if path_info == '/fruits/orange' then
         env['PATH_INFO'] = '/fruits/apple'

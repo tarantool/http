@@ -54,12 +54,12 @@ local function make_env(server, req)
             rewind = tsgi_input_rewind,
         },
         ['tsgi.hijack'] = nil,            -- no support for hijack with nginx
-        ['REQUEST_METHOD'] = string.upper(req.method),
+        ['method'] = string.upper(req.method),
         ['SERVER_NAME'] = server.host,
         ['SERVER_PORT'] = server.port,
-        ['PATH_INFO'] = path_info,
-        ['QUERY_STRING'] = query_string,
-        ['SERVER_PROTOCOL'] = req.proto,
+        ['path'] = path_info,
+        ['query'] = query_string,
+        ['proto'] = req.proto,
         [tsgi.KEY_PEER] = {
             host = peer_host,
             port = peer_port,

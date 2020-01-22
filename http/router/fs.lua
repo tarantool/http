@@ -50,7 +50,7 @@ local function catfile(...)
 end
 
 local function static_file(self, request, format)
-    local file = catfile(self.options.app_dir, 'public', request:path())
+    local file = catfile(self.options.app_dir, 'public', request.path)
 
     if self.options.cache_static and self.cache.static[ file ] ~= nil then
         return {

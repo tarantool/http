@@ -25,7 +25,7 @@ end
 
 local function main_endpoint_middleware(request)
     local self = request:router()
-    local format = uri_file_extension(request:path(), 'html')
+    local format = uri_file_extension(request.path, 'html')
     local r = request[tsgi.KEY_ROUTE]
 
     if r == nil then
@@ -39,8 +39,8 @@ end
 
 local function populate_chain_with_middleware(env, middleware_obj)
     local filter = matching.transform_filter({
-        path = env:path(),
-        method = env:method()
+        path = env.path,
+        method = env.method
     })
     for _, m in pairs(middleware_obj:ordered()) do
         if matching.matches(m, filter) then
@@ -52,7 +52,7 @@ end
 local function dispatch_middleware(req)
     local self = req:router()
 
-    local r = self:match(req:method(), req:path())
+    local r = self:match(req.method, req.path)
     req[tsgi.KEY_ROUTE] = r
 
     populate_chain_with_middleware(req, self.middleware)

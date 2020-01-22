@@ -30,14 +30,14 @@ local function serialize_request(env)
     -- TODO: copypaste from router/request.lua.
     -- maybe move it to tsgi.lua.
 
-    local res = env['PATH_INFO']
-    local query_string = env['QUERY_STRING']
+    local res = env.path
+    local query_string = env.query
     if query_string ~= nil and query_string ~= '' then
         res = res .. '?' .. query_string
     end
 
     res = utils.sprintf("%s %s %s",
-                        env['REQUEST_METHOD'],
+                        env.method,
                         res,
                         env['SERVER_PROTOCOL'] or 'HTTP/?')
     res = res .. "\r\n"

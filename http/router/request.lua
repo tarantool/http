@@ -39,24 +39,24 @@ local function request_tostring(self)
 end
 
 local function request_line(self)
-    local rstr = self:path()
+    local rstr = self.path
 
-    local query_string = self:query()
+    local query_string = self.query
     if  query_string ~= nil and query_string ~= '' then
         rstr = rstr .. '?' .. query_string
     end
 
     return utils.sprintf("%s %s %s",
-        self['REQUEST_METHOD'],
+        self.method,
         rstr,
         self['SERVER_PROTOCOL'] or 'HTTP/?')
 end
 
 local function query_param(self, name)
-    if self:query() ~= nil and string.len(self:query()) == 0 then
+    if self.query ~= nil and string.len(self.query) == 0 then
         rawset(self, 'query_params', {})
     else
-        local params = lib.params(self['QUERY_STRING'])
+        local params = lib.params(self.query)
         local pres = {}
         for k, v in pairs(params) do
             pres[ utils.uri_unescape(k) ] = utils.uri_unescape(v)
@@ -193,45 +193,9 @@ local function request_read_cached(self)
 end
 
 -------------------------------------
-local function request_peer(self)
-    return self[tsgi.KEY_PEER]
-end
-
-local function request_method(self)
-    return self['REQUEST_METHOD']
-end
-
-local function request_path(self)
-    return self['PATH_INFO']
-end
-
-local function request_query(self)
-    return self['QUERY_STRING']
-end
-
-local function request_proto(self)
-    -- parse SERVER_PROTOCOL which is 'HTTP/<maj>.<min>'
-    local maj = self['SERVER_PROTOCOL']:sub(-3, -3)
-    local min = self['SERVER_PROTOCOL']:sub(-1, -1)
-    return {
-        [1] = tonumber(maj),
-        [2] = tonumber(min),
-    }
-end
-
-local function request_headers(self)
-    local headers = {}
-    for name, value in pairs(tsgi.headers(self)) do
-        -- strip HEADER_ part and convert to lowercase
-        local converted_name = name:sub(8):lower()
-        headers[converted_name] = value
-    end
-    return headers
-end
 
 local function request_header(self, name)
-    name = 'HEADER_' .. name:upper()
-    return self[name]
+    return self.headers[name]
 end
 
 ----------------------------------
@@ -266,12 +230,6 @@ local metatable = {
         read        = request_read,
         json        = request_json,
 
-        peer        = request_peer,
-        method      = request_method,
-        path        = request_path,
-        query       = request_query,
-        proto       = request_proto,
-        headers     = request_headers,
         header      = request_header,
 
         next        = request_next,

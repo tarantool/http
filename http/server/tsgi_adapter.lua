@@ -66,6 +66,7 @@ local function make_env(opts)
         [tsgi.KEY_PARSED_REQUEST] = p,          -- TODO: delete?
         [tsgi.KEY_PEER] = opts.peer,            -- TODO: delete?
 
+        ['peer'] = opts.peer,
         ['tsgi.version'] = '1',
         ['tsgi.url_scheme'] = 'http',      -- no support for https yet
         ['tsgi.input'] = {
@@ -74,11 +75,14 @@ local function make_env(opts)
         },
 
         ['REQUEST_METHOD'] = p.method,
-        ['PATH_INFO'] = p.path,
-        ['QUERY_STRING'] = p.query,
+        ['method'] = p.method,
+        ['path'] = p.path,
+        ['query'] = p.query,
         ['SERVER_NAME'] = opts.httpd.host,
         ['SERVER_PORT'] = opts.httpd.port,
+        ['proto'] = p.proto,
         ['SERVER_PROTOCOL'] = string.format('HTTP/%d.%d', p.proto[1], p.proto[2]),
+        ['headers'] = p.headers,
     }
 
     -- Pass through `env` to env['tsgi.*']:*() functions
