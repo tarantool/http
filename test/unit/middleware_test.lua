@@ -1,5 +1,5 @@
 local t = require('luatest')
-local g = t.group('middleware')
+local g = t.group()
 
 local middleware_module = require('http.router.middleware')
 

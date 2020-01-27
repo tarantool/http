@@ -24,10 +24,10 @@ _test: &test
     - sudo apt-get install -y tarantool tarantool-dev
     - tarantoolctl rocks make
     - tarantoolctl rocks install luacheck 0.25.0
-    - tarantoolctl rocks install luatest 0.3.0
+    - tarantoolctl rocks install luatest 0.4.0
   script:
     - .rocks/bin/luacheck .
-    - .rocks/bin/luatest
+    - .rocks/bin/luatest -v --shuffle all
 
 _deploy: &deploy
   provider: packagecloud
