@@ -45,7 +45,7 @@ _packpack: &packpack
   script:
     - git describe --long
     - git clone https://github.com/packpack/packpack.git packpack
-    - packpack/packpack
+    - bash ./retry_packpack.sh
     - ls -l build/
   deploy:
     # Deploy packages to PackageCloud
