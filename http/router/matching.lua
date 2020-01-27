@@ -57,7 +57,7 @@ local function transform_pattern(path)
         if string.match(match, '^.') ~= '/' then
             match = '/' .. match
         end
-        match = '^' .. match .. '$'
+        match = '^(' .. match .. ')$'
     end
 
     return match, stash
@@ -70,9 +70,14 @@ local function matches(r, filter)
     end
 
     local regex_groups_matched = {string.match(filter.path, r.match)}
+
     if #regex_groups_matched == 0 then
         return false
     end
+
+    -- first regex_group is whole path, we should omit it
+    table.remove(regex_groups_matched, 1)
+
     if #r.stash > 0 and #r.stash ~= #regex_groups_matched then
         return false
     end
@@ -86,7 +91,6 @@ local function matches(r, filter)
     return true, {
         route = r,
         stash = regex_groups_matched,
-
         -- the more symbols were known in advance by route,
         -- the more priority we give the route
         specificity = -symbols_didnt_know,
