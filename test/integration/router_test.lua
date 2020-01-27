@@ -16,6 +16,14 @@ g.after_each(function()
     g.server:stop()
 end)
 
+g.test_route_priority_any = function()
+    g.router:route({ path = 'test/*any', method = 'GET' }, function() return {body = 'any'} end)
+    t.assert_equals(http_client.get(helper.base_uri .. 'test/some').body, 'any')
+
+    g.router:route({ path = 'test/some', method = 'GET'}, function () return  {body = 'some'} end)
+    t.assert_equals(http_client.get(helper.base_uri .. 'test/some').body, 'some')
+end
+
 g.test_route_priority_stash = function()
     g.router:route({method = 'GET', path = '*stashname'}, function(_)
         return {
