@@ -260,6 +260,19 @@ local function add_route(self, opts, handler)
     else
         table.insert(self.routes, opts)
     end
+
+    if opts.log_requests ~= nil then
+        if type(opts.log_requests) ~= 'function' and type(opts.log_requests) ~= 'boolean' then
+            error("'log_requests' option should be a function or a boolean")
+        end
+    end
+
+    if opts.log_errors ~= nil then
+        if type(opts.log_errors) ~= 'function' and type(opts.log_errors) ~= 'boolean' then
+            error("'log_errors' option should be a function or a boolean")
+        end
+    end
+
     return self
 end
 
