@@ -112,8 +112,13 @@ server = require('http.server').new(host, port[, { options } ])
   needed).
 * `display_errors` - return application errors and backtraces to the client
   (like PHP).
-* `log_errors` - log application errors using `log.error()`.
-* `log_requests` - log incoming requests.
+* `log_requests` - log incoming requests. This parameter can receive:
+    - function value, supporting C-style formatting: log_requests(fmt, ...),
+    where fmt is a format string and ... is Lua Varargs, holding arguments to be replaced in fmt.
+    - boolean value, where `true` choose default `log.info` and `false` disable request logs at all
+    By default uses `log.info` function for requests logging.
+* `log_errors` - same as the `log_requests` option but is used for error messages logging.
+    By default uses `log.error()` function.
 
 ## Creating a router
 
@@ -163,6 +168,8 @@ The first argument for `route()` is a Lua table with one or more keys:
 | `path` | route path, as described earlier. |
 | `name` | route name. |
 | `method` | method on the route like `POST`, `GET`, `PUT`, `DELETE` |
+| `log_requests` | option that overrides the server parameter of the same name but only for current route. |
+| `log_errors` | option that overrides the server parameter of the same name but only for current route. |
 
 The second argument is the route handler to be used to produce
 a response to the request.
