@@ -14,6 +14,7 @@ git:
 env:
   global:
     - PRODUCT=tarantool-http
+    - ROCK_NAME=http
 
 _test: &test
   before_install:
@@ -91,6 +92,21 @@ jobs:
       env: OS=debian DIST=jessie
     - <<: *packpack
       env: OS=debian DIST=stretch
+    - stage: deploy
+      script: skip
+      deploy:
+        - provider: script
+          script: curl --fail -X PUT -F rockspec=@$ROCK_NAME-scm-1.rockspec
+            https://$ROCKS_USERNAME:$ROCKS_PASSWORD@$ROCKS_SERVER
+        - on:
+            tags: true
+          provider: script
+          script: cat $ROCK_NAME-scm-1.rockspec |
+            sed -E
+            -e "s/branch = '.+'/tag = '$TRAVIS_TAG'/g"
+            -e "s/version = '.+'/version = '$TRAVIS_TAG-1'/g" |
+            curl --fail -X PUT -F "rockspec=@-;filename=$ROCK_NAME-$TRAVIS_TAG-1.rockspec"
+            https://$ROCKS_USERNAME:$ROCKS_PASSWORD@$ROCKS_SERVER
 
 notifications:
   email:
