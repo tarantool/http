@@ -32,6 +32,54 @@ local function headers_ended(hdrs)
         or string.endswith(hdrs, "\r\n\r\n")
 end
 
+local function is_function(obj)
+    return type(obj) == 'function'
+end
+
+local function get_request_logger(server_opts, route_opts)
+    if route_opts and route_opts.endpoint.log_requests ~= nil then
+        if is_function(route_opts.endpoint.log_requests) then
+            return route_opts.endpoint.log_requests
+        elseif route_opts.endpoint.log_requests == false then
+            return log.debug
+        elseif route_opts.endpoint.log_requests == true then
+            return log.info
+        end
+    end
+
+    if server_opts.log_requests then
+        if is_function(server_opts.log_requests) then
+            return server_opts.log_requests
+        end
+
+        return log.info
+    end
+
+    return log.debug
+end
+
+local function get_error_logger(server_opts, route_opts)
+    if route_opts and route_opts.endpoint.log_errors ~= nil then
+        if is_function(route_opts.endpoint.log_errors) then
+            return route_opts.endpoint.log_errors
+        elseif route_opts.endpoint.log_errors == false then
+            return log.debug
+        elseif route_opts.endpoint.log_errors == true then
+            return log.error
+        end
+    end
+
+    if server_opts.log_errors then
+        if is_function(server_opts.log_errors) then
+            return server_opts.log_errors
+        end
+
+        return log.error
+    end
+
+    return log.debug
+end
+
 ----------
 -- Server
 ----------
@@ -99,7 +147,9 @@ local function process_client(self, s, peer)
             s:write('HTTP/1.0 100 Continue\r\n\r\n')
         end
 
-        local logreq = self.options.log_requests and log.info or log.debug
+        local matched_route = self.options.router:match(p.method, p.path)
+
+        local logreq = get_request_logger(self.options, matched_route)
         logreq("%s %s%s", p.method, p.path,
             p.query ~= "" and "?"..p.query or "")
 
@@ -117,7 +167,7 @@ local function process_client(self, s, peer)
             status = 500
             hdrs = {}
             local trace = debug.traceback()
-            local logerror = self.options.log_errors and log.error or log.debug
+            local logerror = get_error_logger(self.options, matched_route)
 
             -- TODO: copypaste
             logerror('unhandled error: %s\n%s\nrequest:\n%s',
