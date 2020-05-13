@@ -4,6 +4,7 @@ local mime_types = require('http.mime_types')
 local response = require('http.router.response')
 
 local json = require('json')
+local fio = require('fio')
 
 local function type_by_format(fmt)
     if fmt == nil then
@@ -62,14 +63,19 @@ local function static_file(self, request, format)
         }
     end
 
-    local s, fh = pcall(io.input, file)
+    local fh, err = fio.open(file, {'O_RDONLY'})
 
-    if not s then
+    if err ~= nil then
         return { status = 404 }
     end
 
-    local body = fh:read('*a')
-    io.close(fh)
+    local body
+    body, err = fh:read()
+    if err ~= nil then
+        utils.errorf("Can not return static file for '%s': '%s'", request:path(), err)
+    end
+
+    fh:close()
 
     if self.options.cache_static then
         self.cache.static[ file ] = body
@@ -158,8 +164,18 @@ local function load_template(self, r, format)
 
 
     local tpl = catfile(self.options.app_dir, 'templates', file)
-    local fh = io.input(tpl)
-    local template = fh:read('*a')
+    local fh, err = fio.open(tpl)
+    if err ~= nil then
+        utils.errorf("Can not load template for '%s': '%s'", r.path, err)
+    end
+
+    local template
+    template, err = fh:read()
+
+    if err ~= nil then
+        utils.errorf("Can not load template for '%s': '%s'", r.path, err)
+    end
+
     fh:close()
 
     if self.options.cache_templates then
