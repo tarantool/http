@@ -107,9 +107,6 @@ server = require('http.server').new(host, port[, { options } ])
 
 `options` may contain:
 
-* `handler` - a Lua function to handle HTTP requests (this is
-  a handler to use if the module "routing" functionality is not
-  needed).
 * `display_errors` - return application errors and backtraces to the client
   (like PHP).
 * `log_requests` - log incoming requests. This parameter can receive:
@@ -213,7 +210,9 @@ end
 | `req:redirect_to` | create a **Response** object with an HTTP redirect.
 | `req:next()` | in middleware invokes remaining middleware chain and route handler and returns the response |
 | `req:hijack()` | terminates HTTP connection. Open TCP connection object is returned |
-| `req:json()`  | returns a Lua table from a JSON request. |
+| `req:json()` | returns a Lua table from a JSON request. |
+| `req:render(opts)` | create a **Response** in defined data format or with a rendered template. **opts** is a table with one key, where key is response body format, value is response body data. **opts** example: `{json = {field1 = 'value1', field2 = 'value2'}}`. If **opts** not defined, method creates a **Response** with a rendered template. |
+
 
 ### Fields and methods of the Response object
 
