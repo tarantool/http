@@ -5,12 +5,11 @@ local tsgi = require('http.tsgi')
 local json = require('json')
 local log = require('log')
 
-box.cfg{}
-
-local httpd = http_server.new('127.0.0.1', 12345, {
+local httpd = http_server.new('127.0.0.1', 8080, {
     log_requests = true,
     log_errors = true
 })
+local router = http_router.new()
 
 local function swap_orange_and_apple(env)
     local path_info = env['PATH_INFO']
@@ -37,45 +36,26 @@ local function add_helloworld_to_response(env)
     return resp
 end
 
-local function apple_handler(_)
+router:route({method = 'GET', path = '/fruits/apple'}, function()
     return {status = 200, body = json.encode({kind = 'apple'})}
-end
+end)
 
-local function orange_handler(_)
+router:route({method = 'GET', path = '/fruits/orange'}, function()
     return {status = 200, body = json.encode({kind = 'orange'})}
-end
+end)
 
-local router = http_router.new()
-    :route({
-            method = 'GET',
-            path = '/fruits/apple',
-        },
-        apple_handler
-    )
-    :route({
-            method = 'GET',
-            path = '/fruits/orange',
-        },
-        orange_handler
-    )
-
-local ok = router:use({
+assert(router:use(swap_orange_and_apple, {
     preroute = true,
     name = 'swap_orange_and_apple',
     method = 'GET',
     path = '/fruits/.*',
-    handler = swap_orange_and_apple,
-})
-assert(ok, 'no conflict on adding swap_orange_and_apple')
+}), 'conflict on adding swap_orange_and_apple')
 
-ok = router:use({
+assert(router:use(add_helloworld_to_response, {
     name = 'hello_world',
     method = 'GET',
     path = '/fruits/.*',
-    handler = add_helloworld_to_response,
-})
-assert(ok, 'no conflict on adding hello_world middleware')
+}), 'conflict on adding hello_world middleware')
 
-
-httpd:set_handler(router)
+httpd:set_router(router)
 httpd:start()
