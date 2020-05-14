@@ -175,11 +175,12 @@ local function use_middleware(self, handler, opts)
         before = '?string|table',
         after = '?string|table',
     })
+    opts = opts or {}
     opts = table.deepcopy(opts)
     opts.handler = handler
 
     local uuid = require('uuid')
-    opts.path = opts.path or '/.*'
+    opts.path = opts.path or '?.*'
     opts.method = opts.method or 'ANY'
     opts.name = opts.name or uuid.str()
     opts.before = opts.before or {}
