@@ -211,7 +211,7 @@ end
 | `req:next()` | in middleware invokes remaining middleware chain and route handler and returns the response |
 | `req:hijack()` | terminates HTTP connection. Open TCP connection object is returned |
 | `req:json()` | returns a Lua table from a JSON request. |
-| `req:render(opts)` | create a **Response** in defined data format or with a rendered template. **opts** is a table with one key, where key is response body format, value is response body data. **opts** example: `{json = {field1 = 'value1', field2 = 'value2'}}`. If **opts** not defined, method creates a **Response** with a rendered template. |
+| `req:render(opts)` | create a **Response** in the defined data format or with a rendered template. **opts** is a table with one key, where key is the response body format, and value is the response body data. **opts** example: `{json = {field1 = 'value1', field2 = 'value2'}}`. If **opts** is not defined, the method creates a **Response** with a rendered template. |
 
 
 ### Fields and methods of the Response object
