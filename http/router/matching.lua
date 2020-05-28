@@ -1,17 +1,8 @@
 local utils = require('http.utils')
 
 local function transform_filter(filter)
-    local path = filter.path
-    -- route must have '/' at the begin and end
-    if string.match(path, '.$') ~= '/' then
-        path = path .. '/'
-    end
-    if string.match(path, '^.') ~= '/' then
-        path = '/' .. path
-    end
-
     return {
-        path = path,
+        path = filter.path,
         method = string.upper(filter.method)
     }
 end
@@ -49,16 +40,10 @@ local function transform_pattern(path)
     -- extended patterns starting with *
     while find_and_replace_stash_pattern('[*]([%a_][%w_]*)', '(.-)') do end
 
-    -- ensure match is like '^/xxx/$'
-    do
-        if string.match(match, '.$') ~= '/' then
-            match = match .. '/'
-        end
-        if string.match(match, '^.') ~= '/' then
-            match = '/' .. match
-        end
-        match = '^(' .. match .. ')$'
+    if string.match(match, '^.') ~= '/' then
+        match = '/' .. match
     end
+    match = '^(' .. match .. ')$'
 
     return match, stash
 end
