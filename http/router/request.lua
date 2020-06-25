@@ -123,14 +123,19 @@ local function param(self, name)
     return utils.extend(post, query, false)
 end
 
-local function cookie(self, cookiename)
+local function cookie(self, cookiename, options)
+    options = options or {}
     if self:header('cookie') == nil then
         return nil
     end
     for k, v in string.gmatch(
         self:header('cookie'), "([^=,; \t]+)=([^,; \t]+)") do
         if k == cookiename then
-            return utils.uri_unescape(v)
+            if not options.raw then
+                return utils.uri_unescape(v)
+            else
+                return v
+            end
         end
     end
     return nil

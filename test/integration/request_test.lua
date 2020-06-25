@@ -26,6 +26,57 @@ g.test_redirect_to = function()
     t.assert_equals(r.body, "OK")
 end
 
+g.test_get_cookie = function()
+    g.router:route({path = '/receive_cookie'}, function(req)
+        local foo = req:cookie('foo')
+        local baz = req:cookie('baz')
+        return req:render({
+            text = ('foo=%s; baz=%s'):format(foo, baz)
+        })
+    end)
+
+    local r = http_client.get(helper.base_uri .. 'receive_cookie', {
+        headers = {
+            cookie = 'foo=f%3Bf; baz=f%5Cf',
+        }
+    })
+
+    t.assert_equals(r.status, 200, 'status')
+    t.assert_equals(r.body, 'foo=f;f; baz=f\\f', 'body')
+end
+
+g.test_get_cookie_raw = function()
+    g.router:route({path = '/receive_cookie_raw'}, function(req)
+        local foo = req:cookie('foo', {raw = true})
+        local baz = req:cookie('baz', {raw = true})
+        return req:render({
+            text = ('foo=%s; baz=%s'):format(foo, baz)
+        })
+    end)
+
+    local r = http_client.get(helper.base_uri .. 'receive_cookie_raw', {
+        headers = {
+            cookie = 'foo=f%3Bf; baz=f%5Cf',
+        }
+    })
+
+    t.assert_equals(r.status, 200, 'status')
+    t.assert_equals(r.body, 'foo=f%3Bf; baz=f%5Cf', 'body')
+end
+
+g.test_set_cookie = function()
+    g.router:route({path = '/cookie'}, function(req)
+        local resp = req:render({text = ''})
+        resp:setcookie({ name = 'test', value = 'tost',
+                         expires = '+1y', path = '/abc' })
+        resp:setcookie({ name = 'xxx', value = 'yyy' })
+        return resp
+    end)
+    local r = http_client.get(helper.base_uri .. 'cookie')
+    t.assert_equals(r.status, 200, 'status')
+    t.assert(r.headers['set-cookie'] ~= nil, "header")
+end
+
 g.test_server_requests = function()
     local r = http_client.get(helper.base_uri .. 'test')
     t.assert_equals(r.status, 200, '/test code')
@@ -151,34 +202,6 @@ g.test_server_requests = function()
     t.assert_equals(r.status, 200, 'chunked 200')
     t.assert_equals(r.headers['transfer-encoding'], 'chunked', 'chunked headers')
     t.assert_equals(r.body, 'chunkedencodingt\r\nest', 'chunked body')
-
-    -- get cookie
-    g.router:route({path = '/receive_cookie'}, function(req)
-            local foo = req:cookie('foo')
-            local baz = req:cookie('baz')
-            return req:render({
-                    text = ('foo=%s; baz=%s'):format(foo, baz)
-            })
-    end)
-    r = http_client.get(helper.base_uri .. 'receive_cookie', {
-                                  headers = {
-                                      cookie = 'foo=bar; baz=feez',
-                                  }
-    })
-    t.assert_equals(r.status, 200, 'status')
-    t.assert_equals(r.body, 'foo=bar; baz=feez', 'body')
-
-    -- cookie
-    g.router:route({path = '/cookie'}, function(req)
-            local resp = req:render({text = ''})
-            resp:setcookie({ name = 'test', value = 'tost',
-                             expires = '+1y', path = '/abc' })
-            resp:setcookie({ name = 'xxx', value = 'yyy' })
-            return resp
-    end)
-    r = http_client.get(helper.base_uri .. 'cookie')
-    t.assert_equals(r.status, 200, 'status')
-    t.assert(r.headers['set-cookie'] ~= nil, "header")
 
 
     -- request object with GET method
