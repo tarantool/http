@@ -204,7 +204,7 @@ end
 | `req:post_param(name)` | returns a single POST request a parameter value.  If `name` is `nil`, returns all parameters as a Lua table. |
 | `req:query_param(name)` | returns a single GET request parameter value.  If `name` is `nil`, returns a Lua table with all arguments. |
 | `req:param(name)` | any request parameter, either GET or POST. |
-| `req:cookie(name)` | to get a cookie in the request. |
+| `req:cookie(name, {raw = true})` | to get a cookie in the request. if `raw` option was set then cookie will not be unescaped, otherwise cookie's value will be unescaped |
 | `req:stash(name[, value])` | **NOTE**: currently not supported inside middleware handlers. Get or set a variable "stashed" when dispatching a route. |
 | `req:url_for(name, args, query)` | returns the route's exact URL.
 | `req:redirect_to` | create a **Response** object with an HTTP redirect.
@@ -221,7 +221,7 @@ end
 | `resp.status` | HTTP response code.
 | `resp.headers` | a Lua table with normalized headers.
 | `resp.body` | response body (string|table|wrapped\_iterator).
-| `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'))` | adds `Set-Cookie` headers to `resp.headers`.
+| `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'}, {raw = true})` | adds `Set-Cookie` headers to `resp.headers`, if `raw` option was set then cookie will not be escaped, otherwise cookie's value and path will be escaped
 
 ### Examples
 

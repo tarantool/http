@@ -36,6 +36,14 @@ local function extend(tbl, tblu, raise)
     return res
 end
 
+local function escape_char(char)
+    return string.format('%%%02X', string.byte(char))
+end
+
+local function unescape_char(char)
+    return string.char(tonumber(char, 16))
+end
+
 local function uri_unescape(str, unescape_plus_sign)
     local res = {}
     if type(str) == 'table' then
@@ -47,11 +55,7 @@ local function uri_unescape(str, unescape_plus_sign)
             str = string.gsub(str, '+', ' ')
         end
 
-        res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])',
-                          function(c)
-                              return string.char(tonumber(c, 16))
-                          end
-        )
+        res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])', unescape_char)
     end
     return res
 end
@@ -63,11 +67,7 @@ local function uri_escape(str)
             table.insert(res, uri_escape(v))
         end
     else
-        res = string.gsub(str, '[^a-zA-Z0-9_]',
-                          function(c)
-                              return string.format('%%%02X', string.byte(c))
-                          end
-        )
+        res = string.gsub(str, '[^a-zA-Z0-9_]', escape_char)
     end
     return res
 end
@@ -80,4 +80,6 @@ return {
     extend = extend,
     uri_unescape = uri_unescape,
     uri_escape = uri_escape,
+    escape_char = escape_char,
+    unescape_char = unescape_char,
 }

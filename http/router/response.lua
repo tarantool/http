@@ -28,7 +28,43 @@ local function expires_str(str)
     return os.date(fmt, gmtnow + diff)
 end
 
-local function setcookie(resp, cookie)
+local function valid_cookie_value_byte(byte)
+    -- https://tools.ietf.org/html/rfc6265#section-4.1.1
+    -- US-ASCII characters excluding CTLs, whitespace DQUOTE, comma, semicolon, and backslash
+    return 32 < byte and byte < 127 and byte ~= string.byte('"') and
+            byte ~= string.byte(",") and byte ~= string.byte(";") and byte ~= string.byte("\\")
+end
+
+local function valid_cookie_path_byte(byte)
+    -- https://tools.ietf.org/html/rfc6265#section-4.1.1
+    -- <any CHAR except CTLs or ";">
+    return 32 <= byte and byte < 127 and byte ~= string.byte(";")
+end
+
+local function escape_string(str, byte_filter)
+    local result = {}
+    for i = 1, str:len() do
+        local char = str:sub(i,i)
+        if byte_filter(string.byte(char)) then
+            result[i] = char
+        else
+            result[i] = utils.escape_char(char)
+        end
+    end
+    return table.concat(result)
+end
+
+local function escape_value(cookie_value)
+    return escape_string(cookie_value, valid_cookie_value_byte)
+end
+
+local function escape_path(cookie_path)
+    return escape_string(cookie_path, valid_cookie_path_byte)
+end
+
+local function setcookie(resp, cookie, options)
+    options = options or {}
+
     local name = cookie.name
     local value = cookie.value
 
@@ -39,10 +75,20 @@ local function setcookie(resp, cookie)
         error('cookie.value is undefined')
     end
 
-    local str = utils.sprintf('%s=%s', name, utils.uri_escape(value))
-    if cookie.path ~= nil then
-        str = utils.sprintf('%s;path=%s', str, cookie.path)
+    if not options.raw then
+        value = escape_value(value)
     end
+
+    local str = utils.sprintf('%s=%s', name, value)
+
+    if cookie.path ~= nil then
+        if options.raw then
+            str = utils.sprintf('%s;path=%s', str, cookie.path)
+        else
+            str = utils.sprintf('%s;path=%s', str, escape_path(cookie.path))
+        end
+    end
+
     if cookie.domain ~= nil then
         str = utils.sprintf('%s;domain=%s', str, cookie.domain)
     end
