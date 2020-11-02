@@ -37,6 +37,11 @@ g.test_template = function()
     local rendered = http_lib.template(template, { t = tt })
     t.assert(#rendered > 10000, "rendered size")
     t.assert_equals(rendered:sub(#rendered - 7, #rendered - 1), "</html>", "rendered eof")
+
+    -- gh-51 Incorrect arguments escaping leads to segfault
+    template = [[<%= {{continue}} %>"]]
+    local result = http_lib.template(template, {continue = '/'})
+    t.assert(result:find('\"') ~= nil)
 end
 
 g.test_parse_request = function()
