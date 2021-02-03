@@ -19,6 +19,7 @@ align="right">
 
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
+* [Compatibility with v1](#compatibility-with-v1)
 * [Usage](#usage)
 * [Creating a server](#creating-a-server)
 * [Using routes](#using-routes)
@@ -64,6 +65,19 @@ You can:
   ``` bash
   luarocks install https://raw.githubusercontent.com/tarantool/http/master/rockspecs/http-scm-1.rockspec --local
   ```
+
+##Compatibility with v1
+Added ability to use [http-v1 API](https://github.com/tarantool/http/tree/1.1.0). You just need to use it as was in 
+the first version and it will work.
+
+```lua
+local http_server = require('http.server')
+local httpd = http_server.new('localhost', 8080, {max_header_size = 9000}) -- v1 http_server option
+httpd:route({ path = '/hello', method = 'GET' }, function(req)
+    return { status = 200, body = 'Path = ' .. req.path } -- req.path as in v1
+end)
+httpd:start()
+```
 
 ## Usage
 

@@ -38,7 +38,7 @@ _test: &test
     - tarantoolctl rocks install luatest 0.5.0
   script:
     - .rocks/bin/luacheck .
-    - .rocks/bin/luatest -v --shuffle all
+    - .rocks/bin/luatest -v --shuffle all && tarantool test/integration/test_tap_v1.lua
 
 _deploy: &deploy
   provider: packagecloud

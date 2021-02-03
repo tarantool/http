@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Add compatibility with v1. Allowed to use http-v2 as http-v1 (methods, fields, options)
+- Added ability to set and get cookie without escaping
+- Get rid of io module, use fio instead
+- Check pointer to string before use it at escaping in templates
 
 ## [2.1.0] - 2020-01-30
 ### Added

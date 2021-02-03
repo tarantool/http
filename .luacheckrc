@@ -5,4 +5,5 @@ exclude_files = {
     ".rocks",
     "build",
     "http/mime_types.lua",
+    "test/integration/test_tap_v1.lua"
 }
