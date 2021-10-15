@@ -24,7 +24,7 @@ if(TARANTOOL_INCLUDE_DIR)
 endif()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(TARANTOOL
+find_package_handle_standard_args(Tarantool
     REQUIRED_VARS TARANTOOL_INCLUDE_DIR VERSION_VAR TARANTOOL_VERSION)
 if(TARANTOOL_FOUND)
     set(TARANTOOL_INCLUDE_DIRS "${TARANTOOL_INCLUDE_DIR}"
