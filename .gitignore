@@ -18,8 +18,3 @@ install_manifest.txt
 VERSION
 Testing
 CTestTestfile.cmake
-*.snap
-*.xlog
-VERSION.lua
-.rocks
-.idea

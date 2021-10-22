@@ -91,37 +91,6 @@ tpl_term(int type, const char *str, size_t len, void *data)
 	}
 }
 
-/**
- * This function exists because lua_tostring does not use
- * __tostring metamethod, and this metamethod has to be used
- * if we want to print Lua userdata correctly.
- */
-static const char *
-luaT_tolstring(lua_State *L, int idx, size_t *len)
-{
-	if (!luaL_callmeta(L, idx, "__tostring")) {
-		switch (lua_type(L, idx)) {
-			case LUA_TNUMBER:
-			case LUA_TSTRING:
-				lua_pushvalue(L, idx);
-				break;
-			case LUA_TBOOLEAN: {
-				int val = lua_toboolean(L, idx);
-				lua_pushstring(L, val ? "true" : "false");
-				break;
-			}
-			case LUA_TNIL:
-				lua_pushliteral(L, "nil");
-				break;
-			default:
-				lua_pushfstring(L, "%s: %p", luaL_typename(L, idx),
-								lua_topointer(L, idx));
-		}
-	}
-
-	return lua_tolstring(L, -1, len);
-}
-
 static int
 lbox_httpd_escape_html(struct lua_State *L)
 {
@@ -140,8 +109,11 @@ lbox_httpd_escape_html(struct lua_State *L)
 	}
 
 	for (i = 1; i <= top; i++) {
-		const char *s = luaT_tolstring(L, i, NULL);
-		int str_idx = lua_gettop(L);
+		if (lua_isnil(L, i)) {
+			luaL_addstring(&b, "nil");
+			continue;
+		}
+		const char *s = lua_tostring(L, i);
 		for (; *s; s++) {
 			switch(*s) {
 				case '&':
@@ -164,7 +136,6 @@ lbox_httpd_escape_html(struct lua_State *L)
 					break;
 			}
 		}
-		lua_remove(L, str_idx);
 	}
 
 	luaL_pushresult(&b);
