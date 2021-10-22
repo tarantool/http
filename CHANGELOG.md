@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add workflow that publish rockspec.
 - Add editorconfig to configure indentation.
 
+### Fixed
+
+- Fix FindTarantool.cmake module.
+
 ## [2.1.0] - 2020-01-30
 
 ### Added
