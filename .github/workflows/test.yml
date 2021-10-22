@@ -22,11 +22,11 @@ jobs:
         id: cache-rocks
         with:
           path: .rocks/
-          key: cache-rocks-${{ matrix.runs-on }}-01
+          key: cache-rocks-${{ matrix.tarantool }}-03
 
       - run: echo $PWD/.rocks/bin >> $GITHUB_PATH
 
-      - run: tarantoolctl rocks make
+      - run: ./deps.sh
 
       - name: Build module
         run: |

@@ -6,6 +6,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
+find_package(LuaTest)
+
 # Find Tarantool and Lua dependecies
 set(TARANTOOL_FIND_REQUIRED ON)
 find_package(Tarantool)
@@ -21,7 +23,7 @@ enable_testing()
 set (LUA_PATH "LUA_PATH=${PROJECT_SOURCE_DIR}/?.lua\\;${PROJECT_SOURCE_DIR}/?/init.lua\\;\\;")
 set (LUA_SOURCE_DIR "LUA_SOURCE_DIR=${PROJECT_SOURCE_DIR}")
 
-add_test(http ${CMAKE_SOURCE_DIR}/test/http.test.lua)
+add_test(http ${LUATEST})
 
 set_tests_properties(http PROPERTIES ENVIRONMENT "${LUA_PATH};${LUA_SOURCE_DIR}")
 
