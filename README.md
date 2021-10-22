@@ -5,7 +5,7 @@ align="right">
 
 # HTTP server for Tarantool 1.7.5+
 
-[![Build Status](https://travis-ci.org/tarantool/http.png?branch=tarantool-1.7)](https://travis-ci.org/tarantool/http)
+[![Test](https://github.com/tarantool/http/actions/workflows/test.yml/badge.svg)](https://github.com/tarantool/http/actions/workflows/test.yml)
 
 > **Note:** In Tarantool 1.7.5+, a full-featured HTTP client is available aboard.
 > For Tarantool 1.6.5+, both HTTP server and client are available
