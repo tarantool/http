@@ -18,16 +18,12 @@ set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
 
 add_subdirectory(http)
 
-enable_testing()
+add_custom_target(luatest
+  COMMAND ${LUATEST} -v
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "Run regression tests"
+)
 
 set (LUA_PATH "LUA_PATH=${PROJECT_SOURCE_DIR}/?.lua\\;${PROJECT_SOURCE_DIR}/?/init.lua\\;\\;")
 set (LUA_SOURCE_DIR "LUA_SOURCE_DIR=${PROJECT_SOURCE_DIR}")
-
-add_test(http ${LUATEST})
-
-set_tests_properties(http PROPERTIES ENVIRONMENT "${LUA_PATH};${LUA_SOURCE_DIR}")
-
-# Add `make check`
-add_custom_target(check
-    WORKING_DIRECTORY ${PROJECT_BUILD_DIR}
-    COMMAND ctest -V)
+set_target_properties(luatest PROPERTIES ENVIRONMENT "${LUA_PATH};${LUA_SOURCE_DIR}")

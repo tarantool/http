@@ -23,7 +23,7 @@ This package provides a HTTP server for Tarantool.
 make %{?_smp_mflags}
 
 %check
-make %{?_smp_mflags} check
+make %{?_smp_mflags} luatest
 
 %install
 %make_install
