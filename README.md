@@ -5,6 +5,7 @@ align="right">
 
 # HTTP server for Tarantool 1.7.5+
 
+[![Static analysis](https://github.com/tarantool/http/actions/workflows/check_on_push.yaml/badge.svg)](https://github.com/tarantool/http/actions/workflows/check_on_push.yaml)
 [![Test](https://github.com/tarantool/http/actions/workflows/test.yml/badge.svg)](https://github.com/tarantool/http/actions/workflows/test.yml)
 
 > **Note:** In Tarantool 1.7.5+, a full-featured HTTP client is available aboard.

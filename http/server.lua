@@ -163,7 +163,6 @@ local function request_content_type(self)
 end
 
 local function post_param(self, name)
-    local content_type = self:content_type()
     if self:content_type() == 'multipart/form-data' then
         -- TODO: do that!
         rawset(self, 'post_params', {})
@@ -213,7 +212,7 @@ local function catfile(...)
         return
     end
 
-    for i, pe in pairs(sp) do
+    for _, pe in pairs(sp) do
         if path == nil then
             path = pe
         elseif string.match(path, '.$') ~= '/' then
@@ -441,7 +440,7 @@ local function render(tx, opts)
     return resp
 end
 
-local function iterate(tx, gen, param, state)
+local function iterate(_, gen, param, state)
     return setmetatable({ body = { gen = gen, param = param, state = state } },
         response_mt)
 end
@@ -837,7 +836,7 @@ local function process_client(self, s, peer)
         };
         for k, v in pairs(hdrs) do
             if type(v) == 'table' then
-                for i, sv in pairs(v) do
+                for _, sv in pairs(v) do
                     table.insert(response, sprintf("%s: %s\r\n", ucfirst(k), sv))
                 end
             else
@@ -857,7 +856,7 @@ local function process_client(self, s, peer)
             if not s:write(response) then
                 break
             end
-            response = nil
+            response = nil -- luacheck: no unused
             -- Transfer-Encoding: chunked
             for _, part in gen, param, state do
                 part = tostring(part)
@@ -916,7 +915,7 @@ local function match_route(self, method, route)
     local fit
     local stash = {}
 
-    for k, r in pairs(self.routes) do
+    for _, r in pairs(self.routes) do
         if r.method == method or r.method == 'ANY' then
             local m = { string.match(route, r.match)  }
             local nfit
@@ -980,7 +979,7 @@ local function url_for_route(r, args, query)
         args = {}
     end
     local name = r.path
-    for i, sn in pairs(r.stash) do
+    for _, sn in pairs(r.stash) do
         local sv = args[sn]
         if sv == nil then
             sv = ''
@@ -1137,7 +1136,7 @@ local function add_route(self, opts, sub)
 
     opts.match = '^' .. opts.match .. '$'
 
-    estash = nil
+    estash = nil -- luacheck: no unused
 
     opts.stash = stash
     opts.sub = sub
@@ -1196,7 +1195,7 @@ local function httpd_start(self)
     local server = socket.tcp_server(self.host, self.port,
                      { name = 'http',
                        handler = function(...)
-                           local res = process_client(self, ...)
+                           process_client(self, ...)
                      end})
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
