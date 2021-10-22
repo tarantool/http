@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 
 - Revert all changes related to http v2 (#134).
+- Rewrite TAP tests with luatest.
 
 ### Added
 
