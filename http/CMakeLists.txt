@@ -12,16 +12,6 @@ set_target_properties(httpd
 
 # Install
 install(TARGETS httpd LIBRARY DESTINATION ${TARANTOOL_INSTALL_LIBDIR}/http)
-install(FILES server/init.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/server)
-install(FILES server/tsgi_adapter.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/server)
-install(FILES nginx_server/init.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/nginx_server)
-install(FILES router/init.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/router)
-install(FILES router/fs.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/router)
-install(FILES router/matching.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/router)
-install(FILES router/middleware.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/router)
-install(FILES router/request.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/router)
-install(FILES router/response.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http/router)
-install(FILES tsgi.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)
-install(FILES utils.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)
+install(FILES server.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)
 install(FILES mime_types.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)
 install(FILES codes.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)

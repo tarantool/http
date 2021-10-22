@@ -10,8 +10,7 @@ description = {
     license  = 'BSD',
 }
 dependencies = {
-    'lua >= 5.1',
-    'checks >= 3.0.1',
+    'lua >= 5.1'
 }
 external_dependencies = {
     TARANTOOL = {
@@ -19,13 +18,18 @@ external_dependencies = {
     }
 }
 build = {
-    type = 'cmake',
+    type = 'builtin',
 
-    variables = {
-        version = 'scm-1',
-        TARANTOOL_DIR = '$(TARANTOOL_DIR)',
-        TARANTOOL_INSTALL_LIBDIR = '$(LIBDIR)',
-        TARANTOOL_INSTALL_LUADIR = '$(LUADIR)',
+    modules = {
+        ['http.lib'] = {
+            sources = 'http/lib.c',
+            incdirs = {
+                "$(TARANTOOL_INCDIR)"
+            }
+        },
+        ['http.server'] = 'http/server.lua',
+        ['http.mime_types'] = 'http/mime_types.lua',
+        ['http.codes'] = 'http/codes.lua',
     }
 }
 

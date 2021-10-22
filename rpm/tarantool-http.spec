@@ -11,7 +11,6 @@ BuildRequires: gcc >= 4.5
 BuildRequires: tarantool-devel >= 1.7.5.0
 BuildRequires: /usr/bin/prove
 Requires: tarantool >= 1.7.5.0
-Requires: tarantool-checks
 
 %description
 This package provides a HTTP server for Tarantool.
@@ -20,9 +19,11 @@ This package provides a HTTP server for Tarantool.
 %setup -q -n %{name}-%{version}
 
 %build
-tarantoolctl rocks install luatest
 %cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo
 make %{?_smp_mflags}
+
+%check
+make %{?_smp_mflags} check
 
 %install
 %make_install

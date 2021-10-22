@@ -9,8 +9,7 @@ macro(extract_definition name output input)
 endmacro()
 
 find_path(TARANTOOL_INCLUDE_DIR tarantool/module.h
-  HINTS ${TARANTOOL_DIR} ENV TARANTOOL_DIR
-  PATH_SUFFIXES include
+  HINTS ENV TARANTOOL_DIR
 )
 
 if(TARANTOOL_INCLUDE_DIR)
@@ -27,14 +26,22 @@ include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(TARANTOOL
     REQUIRED_VARS TARANTOOL_INCLUDE_DIR VERSION_VAR TARANTOOL_VERSION)
 if(TARANTOOL_FOUND)
+    set(TARANTOOL_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/tarantool")
+    set(TARANTOOL_INSTALL_LUADIR "${CMAKE_INSTALL_DATADIR}/tarantool")
     set(TARANTOOL_INCLUDE_DIRS "${TARANTOOL_INCLUDE_DIR}"
-                               "${TARANTOOL_INCLUDE_DIR}/tarantool/"
-        CACHE PATH "Include directories for Tarantool")
-    set(TARANTOOL_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/tarantool"
-        CACHE PATH "Directory for storing Lua modules written in Lua")
-    set(TARANTOOL_INSTALL_LUADIR "${CMAKE_INSTALL_DATADIR}/tarantool"
-        CACHE PATH "Directory for storing Lua modules written in C")
+                               "${TARANTOOL_INCLUDE_DIR}/tarantool/")
 
+    if (NOT "${CMAKE_INSTALL_PREFIX}" STREQUAL "/usr/local" AND
+            NOT "${CMAKE_INSTALL_PREFIX}" STREQUAL "${_install_prefix}")
+        message(WARNING "Provided CMAKE_INSTALL_PREFIX is different from "
+            "CMAKE_INSTALL_PREFIX of Tarantool. You might need to set "
+            "corrent package.path/package.cpath to load this module or "
+            "change your build prefix:"
+            "\n"
+            "cmake . -DCMAKE_INSTALL_PREFIX=${_install_prefix}"
+            "\n"
+        )
+    endif ()
     if (NOT TARANTOOL_FIND_QUIETLY AND NOT FIND_TARANTOOL_DETAILS)
         set(FIND_TARANTOOL_DETAILS ON CACHE INTERNAL "Details about TARANTOOL")
         message(STATUS "Tarantool LUADIR is ${TARANTOOL_INSTALL_LUADIR}")
