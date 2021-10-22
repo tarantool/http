@@ -7,6 +7,7 @@ endif()
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 find_package(LuaTest)
+find_package(LuaCheck)
 
 # Find Tarantool and Lua dependecies
 set(TARANTOOL_FIND_REQUIRED ON)
@@ -17,6 +18,12 @@ include_directories(${TARANTOOL_INCLUDE_DIRS})
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
 
 add_subdirectory(http)
+
+add_custom_target(luacheck
+  COMMAND ${LUACHECK} ${PROJECT_SOURCE_DIR}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMENT "Run luacheck"
+)
 
 add_custom_target(luatest
   COMMAND ${LUATEST} -v

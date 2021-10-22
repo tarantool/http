@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Replace Travis CI with Github Actions.
 - Add workflow that publish rockspec.
 - Add editorconfig to configure indentation.
+- Add luacheck integration.
 
 ### Fixed
 
