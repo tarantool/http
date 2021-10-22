@@ -34,4 +34,4 @@ jobs:
           make -C build
 
       - name: Run tests
-        run: make -C build check
+        run: make -C build luatest

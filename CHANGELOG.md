@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Revert all changes related to http v2 (#134).
 - Rewrite TAP tests with luatest.
+- Create a separate target for running tests in CMake.
 
 ### Added
 
