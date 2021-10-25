@@ -46,3 +46,9 @@ g.test_rendered_template_truncated_gh_18 = function()
     t.assert(#rendered > 10000, 'rendered size')
     t.assert_equals(rendered:sub(#rendered - 7, #rendered - 1), '</html>', 'rendered eof')
 end
+
+g.test_incorrect_arguments_escaping_leads_to_segfault_gh_51 = function()
+    local template = [[<%= {{continue}} %>"]]
+    local result = http_lib.template(template, {continue = '/'})
+    t.assert(result:find('\"') ~= nil)
+end

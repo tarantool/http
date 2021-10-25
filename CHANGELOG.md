@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Fixed
 
 - Fix FindTarantool.cmake module.
+- Fix SEGV_MAPERR when box httpd html escaping.
 
 ## [2.1.0] - 2020-01-30
 
