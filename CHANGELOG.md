@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add workflow that publish rockspec.
 - Add editorconfig to configure indentation.
 - Add luacheck integration.
+- Add option to get cookie without escaping.
 
 ### Fixed
 

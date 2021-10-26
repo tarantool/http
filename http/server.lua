@@ -304,14 +304,18 @@ local function setcookie(resp, cookie)
     return resp
 end
 
-local function cookie(tx, cookie)
+local function cookie(tx, cookie, options)
+    options = options or {}
     if tx.headers.cookie == nil then
         return nil
     end
     for k, v in string.gmatch(
                 tx.headers.cookie, "([^=,; \t]+)=([^,; \t]+)") do
         if k == cookie then
-            return uri_unescape(v)
+            if not options.raw then
+                v = uri_unescape(v)
+            end
+            return v
         end
     end
     return nil

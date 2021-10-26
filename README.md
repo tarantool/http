@@ -226,7 +226,9 @@ end
 * `req:query_param(name)` - returns a single GET request parameter value.
   If `name` is `nil`, returns a Lua table with all arguments.
 * `req:param(name)` - any request parameter, either GET or POST.
-* `req:cookie(name)` - to get a cookie in the request.
+* `req:cookie(name, {raw = true})` | to get a cookie in the request. if `raw`
+  option was set then cookie will not be unescaped, otherwise cookie's value
+  will be unescaped.
 * `req:stash(name[, value])` - get or set a variable "stashed"
   when dispatching a route.
 * `req:url_for(name, args, query)` - returns the route's exact URL.

@@ -203,49 +203,53 @@ g.test_chunked_encoding = function()
     t.assert_equals(r.body, 'chunkedencodingt\r\nest', 'chunked body')
 end
 
--- Get cookie.
+-- Get raw cookie value (Günter -> Günter).
 g.test_get_cookie = function()
+    local cookie = 'Günter'
     local httpd = g.httpd
     httpd:route({
         path = '/receive_cookie'
     }, function(req)
-        local foo = req:cookie('foo')
-        local baz = req:cookie('baz')
+        local name = req:cookie('name', {
+            raw = true
+        })
         return req:render({
-            text = ('foo=%s; baz=%s'):format(foo, baz)
+            text = ('name=%s'):format(name)
         })
     end)
+
     local r = http_client.get(helpers.base_uri .. '/receive_cookie', {
         headers = {
-            cookie = 'foo=bar; baz=feez',
+            cookie = 'name=' .. cookie,
         }
     })
-    t.assert_equals(r.status, 200, 'status')
-    t.assert_equals(r.body, 'foo=bar; baz=feez', 'body')
+
+    t.assert_equals(r.status, 200, 'response status')
+    t.assert_equals(r.body, 'name=' .. cookie, 'body with raw cookie')
 end
 
--- Cookie.
-g.test_set_cookie = function()
+-- Get escaped cookie (G%C3%BCnter -> Günter).
+g.test_get_escaped_cookie = function()
+    local str_escaped = 'G%C3%BCnter'
+    local str_non_escaped = 'Günter'
     local httpd = g.httpd
     httpd:route({
-        path = '/cookie'
+        path = '/receive_cookie'
     }, function(req)
-        local resp = req:render({text = ''})
-        resp:setcookie({
-            name = 'test',
-            value = 'tost',
-            expires = '+1y',
-            path = '/abc'
+        local name = req:cookie('name')
+        return req:render({
+            text = ('name=%s'):format(name)
         })
-        resp:setcookie({
-            name = 'xxx',
-            value = 'yyy'
-        })
-        return resp
     end)
-    local r = http_client.get(helpers.base_uri .. '/cookie')
-    t.assert_equals(r.status, 200, 'status')
-    t.assert(r.headers['set-cookie'] ~= nil, 'header')
+
+    local r = http_client.get(helpers.base_uri .. '/receive_cookie', {
+        headers = {
+            cookie = 'name=' .. str_escaped,
+        }
+    })
+
+    t.assert_equals(r.status, 200, 'response status')
+    t.assert_equals(r.body, 'name=' .. str_non_escaped, 'body with escaped cookie')
 end
 
 -- Request object methods.
