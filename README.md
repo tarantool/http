@@ -240,8 +240,9 @@ end
 * `resp.status` - HTTP response code.
 * `resp.headers` - a Lua table with normalized headers.
 * `resp.body` - response body (string|table|wrapped\_iterator).
-* `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'))` -
-  adds `Set-Cookie` headers to `resp.headers`.
+* `resp:setcookie({ name = 'name', value = 'value', path = '/', expires = '+1y', domain = 'example.com'}, {raw = true})` -
+  adds `Set-Cookie` headers to `resp.headers`, if `raw` option was set then cookie will not be escaped,
+  otherwise cookie's value and path will be escaped
 
 ### Examples
 

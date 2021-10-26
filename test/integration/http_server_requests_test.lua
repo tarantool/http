@@ -252,6 +252,54 @@ g.test_get_escaped_cookie = function()
     t.assert_equals(r.body, 'name=' .. str_non_escaped, 'body with escaped cookie')
 end
 
+-- Set escaped cookie (Günter -> G%C3%BCnter).
+g.test_set_escaped_cookie = function(g)
+    local str_escaped = 'G%C3%BCnter'
+    local str_non_escaped = 'Günter'
+
+    local httpd = g.httpd
+    httpd:route({
+        path = '/cookie'
+    }, function(req)
+        local resp = req:render({
+            text = ''
+        })
+        resp:setcookie({
+            name = 'name',
+            value = str_non_escaped
+        })
+        return resp
+    end)
+
+    local r = http_client.get(helpers.base_uri .. '/cookie')
+    t.assert_equals(r.status, 200, 'response status')
+    t.assert_equals(r.headers['set-cookie'], 'name=' .. str_escaped, 'header with escaped cookie')
+end
+
+-- Set raw cookie (Günter -> Günter).
+g.test_set_raw_cookie = function(g)
+    local cookie = 'Günter'
+    local httpd = g.httpd
+    httpd:route({
+        path = '/cookie'
+    }, function(req)
+        local resp = req:render({
+            text = ''
+        })
+        resp:setcookie({
+            name = 'name',
+            value = cookie
+        }, {
+            raw = true
+        })
+        return resp
+    end)
+
+    local r = http_client.get(helpers.base_uri .. '/cookie')
+    t.assert_equals(r.status, 200, 'response status')
+    t.assert_equals(r.headers['set-cookie'], 'name=' .. cookie, 'header with raw cookie')
+end
+
 -- Request object methods.
 g.test_request_object_methods = function()
     local httpd = g.httpd

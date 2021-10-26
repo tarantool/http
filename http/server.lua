@@ -23,6 +23,49 @@ local function sprintf(fmt, ...)
     return string.format(fmt, ...)
 end
 
+local function valid_cookie_value_byte(byte)
+    -- https://tools.ietf.org/html/rfc6265#section-4.1.1
+    -- US-ASCII characters excluding CTLs, whitespace DQUOTE, comma, semicolon,
+    -- and backslash.
+    return 32 < byte and byte < 127 and byte ~= string.byte('"') and
+            byte ~= string.byte(",") and byte ~= string.byte(";") and byte ~= string.byte("\\")
+end
+
+local function valid_cookie_path_byte(byte)
+    -- https://tools.ietf.org/html/rfc6265#section-4.1.1
+    -- <any CHAR except CTLs or ";">
+    return 32 <= byte and byte < 127 and byte ~= string.byte(";")
+end
+
+local function escape_char(char)
+    return string.format('%%%02X', string.byte(char))
+end
+
+local function unescape_char(char)
+    return string.char(tonumber(char, 16))
+end
+
+local function escape_string(str, byte_filter)
+    local result = {}
+    for i = 1, str:len() do
+        local char = str:sub(i,i)
+        if byte_filter(string.byte(char)) then
+            result[i] = char
+        else
+            result[i] = escape_char(char)
+        end
+    end
+    return table.concat(result)
+end
+
+local function escape_value(cookie_value)
+    return escape_string(cookie_value, valid_cookie_value_byte)
+end
+
+local function escape_path(cookie_path)
+    return escape_string(cookie_path, valid_cookie_path_byte)
+end
+
 local function uri_escape(str)
     local res = {}
     if type(str) == 'table' then
@@ -30,11 +73,7 @@ local function uri_escape(str)
             table.insert(res, uri_escape(v))
         end
     else
-        res = string.gsub(str, '[^a-zA-Z0-9_]',
-            function(c)
-                return string.format('%%%02X', string.byte(c))
-            end
-        )
+        res = string.gsub(str, '[^a-zA-Z0-9_]', escape_char)
     end
     return res
 end
@@ -50,11 +89,7 @@ local function uri_unescape(str, unescape_plus_sign)
             str = string.gsub(str, '+', ' ')
         end
 
-        res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])',
-            function(c)
-                return string.char(tonumber(c, 16))
-            end
-        )
+        res = string.gsub(str, '%%([0-9a-fA-F][0-9a-fA-F])', unescape_char)
     end
     return res
 end
@@ -265,7 +300,8 @@ local function expires_str(str)
     return os.date(fmt, gmtnow + diff)
 end
 
-local function setcookie(resp, cookie)
+local function setcookie(resp, cookie, options)
+    options = options or {}
     local name = cookie.name
     local value = cookie.value
 
@@ -276,9 +312,16 @@ local function setcookie(resp, cookie)
         error('cookie.value is undefined')
     end
 
-    local str = sprintf('%s=%s', name, uri_escape(value))
+    if not options.raw then
+        value = escape_value(value)
+    end
+    local str = sprintf('%s=%s', name, value)
     if cookie.path ~= nil then
-        str = sprintf('%s;path=%s', str, cookie.path)
+        local cookie_path = cookie.path
+        if not options.raw then
+            cookie_path = escape_path(cookie.path)
+        end
+        str = sprintf('%s;path=%s', str, cookie_path)
     end
     if cookie.domain ~= nil then
         str = sprintf('%s;domain=%s', str, cookie.domain)
@@ -1280,7 +1323,12 @@ local exports = {
         }
 
         return self
-    end
+    end,
+
+    internal = {
+        response_mt = response_mt,
+        request_mt = request_mt,
+    }
 }
 
 return exports
