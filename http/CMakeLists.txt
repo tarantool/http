@@ -6,9 +6,9 @@ endif(APPLE)
 add_library(httpd SHARED lib.c)
 set_target_properties(httpd
         PROPERTIES
-            PREFIX ""
-            SUFFIX ".so"
-            OUTPUT_NAME "lib")
+        PREFIX ""
+        SUFFIX ".so"
+        OUTPUT_NAME "lib")
 
 # Install
 install(TARGETS httpd LIBRARY DESTINATION ${TARANTOOL_INSTALL_LIBDIR}/http)
