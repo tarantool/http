@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add editorconfig to configure indentation.
 - Add luacheck integration.
 - Add option to get cookie without escaping.
+- Add option to set cookie without escaping and change escaping algorithm.
 
 ### Fixed
 
