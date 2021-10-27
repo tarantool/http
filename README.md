@@ -12,6 +12,19 @@ align="right">
 > For Tarantool 1.6.5+, both HTTP server and client are available
 > [here](https://github.com/tarantool/http/tree/tarantool-1.6).
 
+## http v2 has gone
+
+http v2 that was implemented in
+[#90](https://github.com/tarantool/http/issues/90) has been reverted in a
+master branch (commits
+[01004d7..e7e00ea](https://github.com/tarantool/http/compare/01004d7..e7e00ea))
+and a limited number of reverted commits were reimplemented on top of http v1.
+However http v2 changes are still available in a [branch
+http-v2](https://github.com/tarantool/http/tree/http-v2) as well as Lua
+rockspecs available with prefix `http-v2-` instead of `http-`. For reasons of
+http v2 revert and decisions regarding each reverted commit see
+[#134](https://github.com/tarantool/http/issues/134).
+
 ## Table of contents
 
 * [Prerequisites](#prerequisites)
