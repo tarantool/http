@@ -20,8 +20,8 @@ master branch (commits
 [01004d7..e7e00ea](https://github.com/tarantool/http/compare/01004d7..e7e00ea))
 and a limited number of reverted commits were reimplemented on top of http v1.
 However http v2 changes are still available in a [branch
-http-v2](https://github.com/tarantool/http/tree/http-v2) as well as Lua
-rockspecs available with prefix `http-v2-` instead of `http-`. For reasons of
+http-v2-legacy](https://github.com/tarantool/http/tree/http-v2-legacy) as well as Lua
+rockspecs available with name `http-v2-legacy` instead of `http`. For reasons of
 http v2 revert and decisions regarding each reverted commit see
 [#134](https://github.com/tarantool/http/issues/134).
 
