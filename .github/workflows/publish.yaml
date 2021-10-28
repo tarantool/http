@@ -20,6 +20,25 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
+      # Create a source tarball for the release (.src.rock).
+      #
+      # `tarantoolctl rocks pack <rockspec>` creates a source
+      # tarball. It speeds up
+      # `tarantoolctl rocks install <module_name> <version>` and
+      # frees it from dependency on git.
+      #
+      # Important: Don't confuse this command with
+      # `tarantoolctl rocks pack <module_name> [<version>]`, which
+      # creates a **binary** rock or .all.rock (see [1]). Don't
+      # upload a binary rock of a Lua/C module to
+      # rocks.tarantool.org. Lua/C modules are platform dependent.
+      #
+      # A 'pure Lua' module is packed into the .all.rock tarball.
+      # Feel free to upload such rock to rocks.tarantool.org.
+      # Don't be confused by the 'pure Lua' words: usage of
+      # LuaJIT's FFI and tarantool specific features are okay.
+      #
+      # [1]: https://github.com/luarocks/luarocks/wiki/Types-of-rocks
       - uses: actions/checkout@v2
       - uses: tarantool/setup-tarantool@v1
         with:
@@ -29,11 +48,12 @@ jobs:
       - run: echo TAG=${GITHUB_REF##*/} >> $GITHUB_ENV
       - run: tarantoolctl rocks new_version --tag ${{ env.TAG }}
       - run: tarantoolctl rocks install http-${{ env.TAG }}-1.rockspec
-      - run: tarantoolctl rocks pack http ${{ env.TAG }}
+      - run: tarantoolctl rocks pack http-${{ env.TAG }}-1.rockspec
 
+      # Upload .rockspec and .src.rock.
       - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
           auth: ${{ secrets.ROCKS_AUTH }}
           files: |
             http-${{ env.TAG }}-1.rockspec
-            http-${{ env.TAG }}-1.all.rock
+            http-${{ env.TAG }}-1.src.rock
