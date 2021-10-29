@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+
+- Disable option display_errors by default.
+
 ## [1.1.1] - 2021-10-28
 
 ### Changed

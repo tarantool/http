@@ -1289,7 +1289,7 @@ local exports = {
             cache_static        = true,
             log_requests        = true,
             log_errors          = true,
-            display_errors      = true,
+            display_errors      = false,
         }
 
         local self = {
