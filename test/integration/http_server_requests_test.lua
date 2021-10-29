@@ -380,3 +380,13 @@ g.test_content_type_header_with_render = function()
     t.assert_equals(r.status, 200)
     t.assert_equals(r.headers['content-type'], 'text/html; charset=utf-8', 'content-type header')
 end
+
+g.test_content_type_header_without_render = function()
+    local httpd = g.httpd
+    httpd:route({
+        path = '/content_type'
+    }, function() end)
+    local r = http_client.get(helpers.base_uri .. '/content_type')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.headers['content-type'], 'text/plain; charset=utf-8', 'content-type header')
+end

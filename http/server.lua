@@ -859,6 +859,10 @@ local function process_client(self, s, peer)
             hdrs['content-length'] = #body
         end
 
+        if hdrs['content-type'] == nil then
+            hdrs['content-type'] = 'text/plain; charset=utf-8'
+        end
+
         if hdrs.server == nil then
             hdrs.server = sprintf('Tarantool http (tarantool v%s)', _TARANTOOL)
         end
