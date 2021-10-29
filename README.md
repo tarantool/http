@@ -285,7 +285,7 @@ function hello(self)
     return self:render({ user = user  })
 end
 
-httpd = box.httpd.new('127.0.0.1', 8080)
+httpd = httpd.new('127.0.0.1', 8080)
 httpd:route(
     { path = '/:id/view', template = 'Hello, <%= user.name %>' }, hello)
 httpd:start()
