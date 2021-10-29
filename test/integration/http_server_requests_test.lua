@@ -7,7 +7,9 @@ local helpers = require('test.helpers')
 local g = t.group()
 
 g.before_each(function()
-    g.httpd = helpers.cfgserv()
+    g.httpd = helpers.cfgserv({
+        display_errors = true,
+    })
     g.httpd:start()
 end)
 

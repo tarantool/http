@@ -123,7 +123,7 @@ httpd = require('http.server').new(host, port[, { options } ])
 * `charset` - the character set for server responses of
   type `text/html`, `text/plain` and `application/json`.
 * `display_errors` - return application errors and backtraces to the client
-  (like PHP).
+  (like PHP). Disabled by default (since 1.2.0).
 * `log_requests` - log incoming requests. This parameter can receive:
     - function value, supporting C-style formatting: log_requests(fmt, ...), where fmt is a format string and ... is Lua Varargs, holding arguments to be replaced in fmt.
     - boolean value, where `true` choose default `log.info` and `false` disable request logs at all.
