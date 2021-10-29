@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Allow to use a non-standard socket (for example, `sslsocket` with TLS
   support).
 
+### Added
+
+- Add option to control keepalive connection state (#137).
+
 ## [1.2.0] - 2021-11-10
 
 ### Changed

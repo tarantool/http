@@ -132,6 +132,20 @@ httpd = require('http.server').new(host, port[, { options } ])
 
   By default uses `log.info` function for requests logging.
 * `log_errors` - same as the `log_requests` option but is used for error messages logging. By default uses `log.error()` function.
+* `disable_keepalive` - disables keep-alive connections with misbehaving
+  clients. Parameter accept a table that contains a user agents names.
+  By default table is empty.
+
+  Example:
+
+  ```lua
+  local httpd = http_server.new('127.0.0.1', 8080, {
+      log_requests = true,
+      log_errors = true,
+      disable_keepalive = { 'curl/7.68.0' }
+  })
+  ```
+
 
 ## Using routes
 

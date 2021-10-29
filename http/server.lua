@@ -23,6 +23,16 @@ local function sprintf(fmt, ...)
     return string.format(fmt, ...)
 end
 
+-- Converts a table to a map, values becomes keys with value 'true'.
+-- { 'a', 'b', 'c' } -> { 'a' = true, 'b' == 'true', 'c' = true }
+local function tomap(tbl)
+    local map = {}
+    for _, v in pairs(tbl) do
+        map[v] = true
+    end
+    return map
+end
+
 local function valid_cookie_value_byte(byte)
     -- https://tools.ietf.org/html/rfc6265#section-4.1.1
     -- US-ASCII characters excluding CTLs, whitespace DQUOTE, comma, semicolon,
@@ -891,6 +901,11 @@ local function process_client(self, s, peer)
             end
         end
 
+        local useragent = p.headers['user-agent']
+        if self.disable_keepalive[useragent] == true then
+            hdrs.connection = 'close'
+        end
+
         local response = {
             "HTTP/1.1 ";
             status;
@@ -1259,7 +1274,9 @@ local function httpd_start(self)
     local server = self.tcp_server_f(self.host, self.port, {
         name = 'http',
         handler = function(...)
+            self.internal.preprocess_client_handler()
             process_client(self, ...)
+            self.internal.postprocess_client_handler()
         end,
         http_server = self,
     })
@@ -1285,6 +1302,11 @@ local exports = {
         if type(options) ~= 'table' then
             errorf("options must be table not '%s'", type(options))
         end
+        local disable_keepalive = options.disable_keepalive or {}
+        if type(disable_keepalive) ~= 'table' then
+            error('Option disable_keepalive must be a table.')
+        end
+
         local default = {
             max_header_size     = 4096,
             header_timeout      = 100,
@@ -1297,6 +1319,7 @@ local exports = {
             log_requests        = true,
             log_errors          = true,
             display_errors      = false,
+            disable_keepalive   = {},
         }
 
         local self = {
@@ -1330,6 +1353,13 @@ local exports = {
                 ctx         = {},
                 static      = {},
             },
+
+            disable_keepalive   = tomap(disable_keepalive),
+
+            internal = {
+                preprocess_client_handler = function() end,
+                postprocess_client_handler = function() end,
+            }
         }
 
         return self
