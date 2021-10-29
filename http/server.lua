@@ -1328,6 +1328,7 @@ local exports = {
     internal = {
         response_mt = response_mt,
         request_mt = request_mt,
+        extend = extend,
     }
 }
 
