@@ -8,15 +8,18 @@ helpers.base_port = 12345
 helpers.base_host = '127.0.0.1'
 helpers.base_uri = ('http://%s:%s'):format(helpers.base_host, helpers.base_port)
 
-helpers.cfgserv = function()
+helpers.cfgserv = function(opts)
     local path = os.getenv('LUA_SOURCE_DIR') or './'
     path = fio.pathjoin(path, 'test')
 
-    local httpd = http_server.new(helpers.base_host, helpers.base_port, {
+    local opts = opts or {}
+    local opts = http_server.internal.extend({
         app_dir = path,
         log_requests = false,
         log_errors = false
-    })
+    }, opts)
+
+    local httpd = http_server.new(helpers.base_host, helpers.base_port, opts)
         :route({path = '/abc/:cde/:def', name = 'test'}, function() end)
         :route({path = '/abc'}, function() end)
         :route({path = '/ctxaction'}, 'module.controller#action')
