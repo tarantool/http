@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [2.1.1] - 2021-11-01
+
+### Fixed
+
+- Check pointer to string before use (#51).
+
+### New features
+
+- Add option to get cookie without escaping (#126).
+- Add option to set cookie without escaping and change escaping algorithm (#126).
+
+### Changed
+
+- Don't build Ubuntu Cosmic package. Because its repos are not available
+  anymore.
+- Add rock publishing.
+- Fix middleware example.
+- Replace `io` module with Tarantool's built-in `fio` module (#112).
+- Updated description of server options and added description of
+  `request:render` function in the README.
+
 ## [2.1.0] - 2020-01-30
 ### Added
 - Return ability to set loggers for a specific route
