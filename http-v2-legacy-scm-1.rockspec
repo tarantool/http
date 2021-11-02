@@ -1,7 +1,7 @@
 package = 'http-v2-legacy'
 version = 'scm-1'
 source  = {
-    url    = 'git://github.com/tarantool/http.git',
+    url    = 'git+https://github.com/tarantool/http.git',
     branch = 'http-v2-legacy',
 }
 description = {
