@@ -1,11 +1,11 @@
-package = 'http'
+package = 'http-v2-legacy'
 version = 'scm-1'
 source  = {
     url    = 'git://github.com/tarantool/http.git',
-    branch = 'master',
+    branch = 'http-v2-legacy',
 }
 description = {
-    summary  = "HTTP server for Tarantool",
+    summary  = "HTTP v2 (legacy) server for Tarantool",
     homepage = 'https://github.com/tarantool/http/',
     license  = 'BSD',
 }
