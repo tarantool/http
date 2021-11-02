@@ -1,7 +1,7 @@
 package = 'http'
 version = '1.1.1-1'
 source  = {
-    url = 'git://github.com/tarantool/http.git',
+    url = 'git+https://github.com/tarantool/http.git',
     tag = '1.1.1',
 }
 description = {
