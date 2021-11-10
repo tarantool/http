@@ -9,7 +9,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tarantool: ['1.10', '2.5', '2.6', '2.7', '2.8']
+        tarantool: ['1.10', '2.5', '2.6', '2.7']
+        coveralls: [false]
+        include:
+          - tarantool: '2.8'
+            coveralls: true
     runs-on: [ubuntu-latest]
     steps:
       - uses: actions/checkout@master
@@ -22,7 +26,7 @@ jobs:
         id: cache-rocks
         with:
           path: .rocks/
-          key: cache-rocks-${{ matrix.tarantool }}-03
+          key: cache-rocks-${{ matrix.tarantool }}-05
 
       - run: echo $PWD/.rocks/bin >> $GITHUB_PATH
 
@@ -32,6 +36,12 @@ jobs:
         run: |
           cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -S . -B build
           make -C build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run tests
-        run: make -C build luatest
+      - name: Run tests and code coverage analysis
+        run: make -C build coverage
+
+      - name: Send code coverage to coveralls.io
+        run: make -C build coveralls
+        if: ${{ matrix.coveralls }}

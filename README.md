@@ -7,6 +7,7 @@ align="right">
 
 [![Static analysis](https://github.com/tarantool/http/actions/workflows/check_on_push.yaml/badge.svg)](https://github.com/tarantool/http/actions/workflows/check_on_push.yaml)
 [![Test](https://github.com/tarantool/http/actions/workflows/test.yml/badge.svg)](https://github.com/tarantool/http/actions/workflows/test.yml)
+[![Coverage Status](https://coveralls.io/repos/github/tarantool/http/badge.svg?branch=master)](https://coveralls.io/github/tarantool/http?branch=master)
 
 > **Note:** In Tarantool 1.7.5+, a full-featured HTTP client is available aboard.
 > For Tarantool 1.6.5+, both HTTP server and client are available
