@@ -14,7 +14,7 @@ jobs:
       - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
           auth: ${{ secrets.ROCKS_AUTH }}
-          files: http-scm-1.rockspec
+          files: rockspec/http-scm-1.rockspec
 
   publish-tag:
     if: startsWith(github.ref, 'refs/tags/')
