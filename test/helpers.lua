@@ -8,13 +8,13 @@ helpers.base_port = 12345
 helpers.base_host = '127.0.0.1'
 helpers.base_uri = ('http://%s:%s'):format(helpers.base_host, helpers.base_port)
 
-helpers.cfgserv = function(opts)
-    local path = os.getenv('LUA_SOURCE_DIR') or './'
-    path = fio.pathjoin(path, 'test')
+local path = os.getenv('LUA_SOURCE_DIR') or './'
+helpers.path = fio.pathjoin(path, 'test')
 
+helpers.cfgserv = function(opts)
     local opts = opts or {}
     local opts = http_server.internal.extend({
-        app_dir = path,
+        app_dir = helpers.path,
         log_requests = false,
         log_errors = false
     }, opts)
@@ -92,6 +92,7 @@ helpers.teardown = function(httpd)
         local r = http_client.request('GET', helpers.base_uri)
         return r == nil
     end)
+    fio.rmdir(helpers.path)
 end
 
 return helpers
