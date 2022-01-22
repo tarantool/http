@@ -9,7 +9,6 @@ local mime_types = require('http.mime_types')
 local codes = require('http.codes')
 
 local log = require('log')
-local socket = require('socket')
 local json = require('json')
 local errno = require 'errno'
 
@@ -1251,16 +1250,26 @@ local function url_for_httpd(httpd, name, args, query)
     end
 end
 
+local function tcp_server_create(self)
+    local socket = require('socket')
+    return socket.tcp_server(
+        self.host
+        ,self.port
+        ,{
+            name = 'http',
+            handler = function(...)
+                process_client(self, ...)
+            end
+        }
+    )
+end
+
 local function httpd_start(self)
     if type(self) ~= 'table' then
         error("httpd: usage: httpd:start()")
     end
 
-    local server = socket.tcp_server(self.host, self.port,
-                     { name = 'http',
-                       handler = function(...)
-                           process_client(self, ...)
-                     end})
+    local server = self:listen()
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
     end
@@ -1317,6 +1326,7 @@ local exports = {
             helper  = set_helper,
             hook    = set_hook,
             url_for = url_for_httpd,
+            listen  = tcp_server_create,
 
             -- caches
             cache   = {
