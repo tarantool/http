@@ -1256,11 +1256,14 @@ local function httpd_start(self)
         error("httpd: usage: httpd:start()")
     end
 
-    local server = socket.tcp_server(self.host, self.port,
-                     { name = 'http',
-                       handler = function(...)
-                           process_client(self, ...)
-                     end})
+    local server = self.tcp_server_f(self.host, self.port, {
+        name = 'http',
+        handler = function(...)
+            process_client(self, ...)
+        end,
+        http_server = self,
+    })
+
     if server == nil then
         error(sprintf("Can't create tcp_server: %s", errno.strerror()))
     end
@@ -1317,6 +1320,9 @@ local exports = {
             helper  = set_helper,
             hook    = set_hook,
             url_for = url_for_httpd,
+
+            -- Exposed to make it replaceable by a user.
+            tcp_server_f = socket.tcp_server,
 
             -- caches
             cache   = {

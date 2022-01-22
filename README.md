@@ -47,6 +47,7 @@ http v2 revert and decisions regarding each reverted commit see
   * [handler(httpd, req)](#handlerhttpd-req)
   * [before\_dispatch(httpd, req)](#before_dispatchhttpd-req)
   * [after\_dispatch(cx, resp)](#after_dispatchcx-resp)
+* [Using a special socket](#using-a-special-socket)
 * [See also](#see-also)
 
 ## Prerequisites
@@ -448,6 +449,40 @@ and the response produced by the handler.
 
 This hook can be used to modify the response.
 The return value of the hook is ignored.
+
+## Using a special socket
+
+To use a special socket, override the `tcp_server_f` field of the HTTP server
+object with your own function. The function should return an object similar to
+one returned by [socket.tcp_server][socket_ref]. It should call `opts.handler`
+when a connection occurs and provide `read`, `write` and `close` methods.
+
+Example:
+
+```lua
+local httpd = require('http.server')
+local server = httpd.new(settings.host, settings.port)
+
+-- Use sslsocket.
+local sslsocket = require('sslsocket')
+server.tcp_server_f = sslsocket.tcp_server
+
+-- Or use your own handler.
+server.tcp_server_f = function(host, port, opts)
+    assert(type(opts) == 'table')
+    local name = opts.name
+    local accept_handler = opts.handler
+    local http_server = opts.http_server
+
+    <...>
+    return <..tcp server object..>
+end
+
+server:route(<your settings>)
+server:start()
+```
+
+[socket_ref]: https://www.tarantool.io/en/doc/latest/reference/reference_lua/socket/#socket-tcp-server
 
 ## See also
 
