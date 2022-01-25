@@ -146,6 +146,9 @@ httpd = require('http.server').new(host, port[, { options } ])
   })
   ```
 
+* `idle_timeout` - maximum amount of time an idle (keep-alive) connection will
+  remain idle before closing. When the idle timeout is exceeded, HTTP server
+  closes the keepalive connection. Default value: 0 seconds (disabled).
 
 ## Using routes
 
