@@ -758,9 +758,9 @@ local function process_client(self, s, peer)
 
         local is_eof = false
         while true do
-            local chunk = s:read{
-                delimiter = { "\n\n", "\r\n\r\n" }
-            }
+            local chunk = s:read({
+                delimiter = { "\n\n", "\r\n\r\n" },
+            }, self.idle_timeout)
 
             if chunk == '' then
                 is_eof = true
@@ -1306,6 +1306,10 @@ local exports = {
         if type(disable_keepalive) ~= 'table' then
             error('Option disable_keepalive must be a table.')
         end
+        if options.idle_timeout ~= nil and
+           type(options.idle_timeout) ~= 'number' then
+            error('Option idle_timeout must be a number.')
+        end
 
         local default = {
             max_header_size     = 4096,
@@ -1320,6 +1324,7 @@ local exports = {
             log_errors          = true,
             display_errors      = false,
             disable_keepalive   = {},
+            idle_timeout        = 0, -- no timeout, option is disabled
         }
 
         local self = {
@@ -1355,6 +1360,7 @@ local exports = {
             },
 
             disable_keepalive   = tomap(disable_keepalive),
+            idle_timeout        = options.idle_timeout,
 
             internal = {
                 preprocess_client_handler = function() end,

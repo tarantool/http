@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - Add option to control keepalive connection state (#137).
+- Add option to control idle connections (#137).
 
 ## [1.2.0] - 2021-11-10
 
