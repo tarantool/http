@@ -5,7 +5,7 @@
 set -e
 
 # Test dependencies:
-tarantoolctl rocks install luatest 0.5.5
+tarantoolctl rocks install luatest 0.5.7
 tarantoolctl rocks install luacheck 0.25.0
 tarantoolctl rocks install luacov 0.13.0
 
