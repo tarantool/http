@@ -10,6 +10,9 @@ g.test_template_1 = function()
                    'tmpl1')
 end
 
+-- The strict module requires a global variable to be explicitly defined
+_G.ab = nil
+
 g.test_template_2 = function()
     t.assert_equals(http_lib.template('<% for i = 1, cnt do %> <%= ab %> <% end %>',
                                      {abc = '1 <3>&" ', cnt = 3}),
