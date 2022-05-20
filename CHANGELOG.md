@@ -68,17 +68,71 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Middleware support (for e.g. for centrally handling authorization).
 
 ## [1.1.0] - 2019-05-30
+### Added
+- Travis builds for tags.
 
 ## [1.0.6] - 2019-05-19
+### Added
+- Custom logger per route support.
+
+### Fixed
+- Fixed buffer reading when timeout or disconnect occurs.
+- Fixed cookies formatting: stop url-encoding cookie path and quoting cookie expire date.
+
+### Changed
+- Readme updates: fix setcookie() description, how to use unix socket.
 
 ## [1.0.5] - 2018-09-03
+### Changed
+- Protocol upgrade: detaching mechanism is re-worked.
 
 ## [1.0.4] - 2018-08-31
+### Added
+- Detach callback support for protocol upgrade implementations.
 
 ## [1.0.3] - 2018-06-29
-### Added
-- Fixed eof detection
+### Fixed
+- Fixed eof detection.
 
-## [1.0.2] - 2017-12-20
+## [1.0.2] - 2018-02-01
+### Fixed
+- Fixed request parsing with headers longer than 4096 bytes.
+
+## [1.0.1] - 2018-01-22
 ### Added
-- Fixed request parsing with headers longer than 4096 bytes
+- Added RPM and DEB specs.
+- Enabled builds for Tarantool 1.7.
+
+### Fixed
+- Fixed building on Mac OS X.
+- Fixed server handler and before_routes hooks.
+- Fixed "data" response body rendering option.
+- Fixed crash in uri_escape and uri_unescape when multiple arguments with same name.
+- Fixed no distinction between PUT and DELETE methods (#25).
+- Fixed compatibility with Tarantool 1.7.
+- Fixed empty Content-Type header handling.
+- Fixed curl delay: add support for expect=100-Continue.
+
+## [1.0] - 2016-11-29
+### Added
+- Added requets peer host and port.
+- Show tarantool version in HTTP header.
+- Support for new Tarantool uri parser.
+- Chunked encoding support in responses.
+- Chunked encoding support in client.
+
+### Changed
+- Fedora 23 build is disabled.
+- HTTP new sockets API.
+- Refactor handler API.
+- Cloud build is enabled.
+- Update the list of supported OS for tarantool/build.
+
+### Fixed
+- Fixed build without -std=c99.
+- Fixed socket:write() problem: use :write instead :send, use new sockets in http_client.
+- Fixed directory traversal attack.
+- Fixed routes with dots don't work as expected (#17).
+- Fixed truncated rendered template (#18).
+
+## [0.0.1] - 2014-05-05
