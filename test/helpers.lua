@@ -1,6 +1,6 @@
 local fio = require('fio')
 local http_server = require('http.server')
-local http_client = require('http.client')
+local socket = require('socket')
 
 local helpers = table.copy(require('luatest').helpers)
 
@@ -87,10 +87,17 @@ helpers.find_msg_in_log_queue = function(msg, strict)
 end
 
 helpers.teardown = function(httpd)
+    local host = httpd.host
+    local port = httpd.port
     httpd:stop()
-    helpers.retrying({}, function()
-        local r = http_client.request('GET', helpers.base_uri)
-        return r == nil
+    helpers.retrying({
+        timeout = 1,
+    }, function()
+        local s, _ = socket.tcp_connect(host, port)
+        if s ~= nil then
+            s:close()
+        end
+        assert(s == nil, 'http server is stopped')
     end)
 end
 
