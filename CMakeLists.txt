@@ -22,6 +22,8 @@ include_directories(${TARANTOOL_INCLUDE_DIRS})
 # Set CFLAGS
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall -Wextra")
 
+string(RANDOM ALPHABET 0123456789 seed)
+
 add_subdirectory(http)
 
 add_custom_target(luacheck
@@ -31,7 +33,7 @@ add_custom_target(luacheck
 )
 
 add_custom_target(luatest
-  COMMAND ${LUATEST} -v --coverage
+  COMMAND ${LUATEST} -v --coverage --shuffle all:${seed}
   BYPRODUCTS ${CODE_COVERAGE_STATS}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Run regression tests"
