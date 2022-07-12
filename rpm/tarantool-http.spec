@@ -20,14 +20,19 @@ This package provides a HTTP server for Tarantool.
 %setup -q -n %{name}-%{version}
 
 %build
-%cmake . -DCMAKE_BUILD_TYPE=RelWithDebInfo
-make %{?_smp_mflags}
-
-%check
-make %{?_smp_mflags} luatest
+%cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo
+%if 0%{?fedora} >= 33 || 0%{?rhel} >= 8
+  %cmake_build
+%else
+  %make_build
+%endif
 
 %install
-%make_install
+%if 0%{?fedora} >= 33 || 0%{?rhel} >= 8
+  %cmake_install
+%else
+  %make_install
+%endif
 
 %files
 %{_libdir}/tarantool/*/
