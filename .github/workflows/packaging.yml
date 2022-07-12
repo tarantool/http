@@ -1,0 +1,91 @@
+name: packaging
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'master'
+    tags:
+      - '*'
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { os: 'debian', dist: 'stretch' }
+          - { os: 'debian', dist: 'buster' }
+          - { os: 'debian', dist: 'bullseye' }
+          - { os: 'el', dist: '7' }
+          - { os: 'el', dist: '8' }
+          - { os: 'fedora', dist: '30' }
+          - { os: 'fedora', dist: '31' }
+          - { os: 'fedora', dist: '32' }
+          - { os: 'fedora', dist: '33' }
+          - { os: 'fedora', dist: '34' }
+          - { os: 'fedora', dist: '35' }
+          - { os: 'fedora', dist: '36' }
+          - { os: 'ubuntu', dist: 'xenial' }
+          - { os: 'ubuntu', dist: 'bionic' }
+          - { os: 'ubuntu', dist: 'focal' }
+          - { os: 'ubuntu', dist: 'groovy' }
+          - { os: 'ubuntu', dist: 'jammy' }
+
+    env:
+      OS: ${{ matrix.platform.os }}
+      DIST: ${{ matrix.platform.dist }}
+
+    steps:
+      - name: Clone the module
+        uses: actions/checkout@v3
+        # `actions/checkout` performs shallow clone of repo. To provide
+        # proper version of the package to `packpack` we need to have
+        # complete repository, otherwise it will be `0.0.1`.
+        with:
+          fetch-depth: 0
+
+      - name: Clone the packpack tool
+        uses: actions/checkout@v3
+        with:
+          repository: packpack/packpack
+          path: packpack
+
+      - name: Fetch tags
+        # Found that Github checkout Actions pulls all the tags, but
+        # right it deannotates the testing tag, check:
+        #   https://github.com/actions/checkout/issues/290
+        # But we use 'git describe ..' calls w/o '--tags' flag and it
+        # prevents us from getting the needed tag for packages version
+        # setup. To avoid of it, let's fetch it manually, to be sure
+        # that all tags will exist always.
+        run: git fetch --tags -f
+
+      - name: Create packages
+        run: ./packpack/packpack
+
+      - name: Deploy packages
+        # We need this step to run only on push with tag.
+        if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+        env:
+          RWS_URL_PART: https://rws.tarantool.org/tarantool-modules
+          RWS_AUTH: ${{ secrets.RWS_AUTH }}
+          PRODUCT_NAME: tarantool-http
+        working-directory: build
+        run: |
+          CURL_CMD="curl -LfsS \
+            -X PUT ${RWS_URL_PART}/${OS}/${DIST} \
+            -u ${RWS_AUTH} \
+            -F product=${PRODUCT_NAME}"
+          
+          shopt -s nullglob
+          for f in *.deb *.rpm *.dsc *.tar.xz *.tar.gz; do
+            CURL_CMD+=" -F $(basename ${f})=@${f}"
+          done
+
+          echo ${CURL_CMD}
+
+          ${CURL_CMD}
