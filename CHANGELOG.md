@@ -6,8 +6,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [1.3.0] - 2022-07-27
+
+### Changed
+
 - Allow to use a non-standard socket (for example, `sslsocket` with TLS
   support).
+- When processing a GET request, the plus sign in the parameter name and
+  value is now replaced with a space. In order to explicitly pass a "+"
+  sign it must be represented as "%2B".
 
 ### Added
 
