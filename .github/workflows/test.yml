@@ -9,10 +9,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tarantool: ['1.10', '2.5', '2.6', '2.7']
+        tarantool: ['1.10', '2.5', '2.6', '2.7', '2.8']
         coveralls: [false]
         include:
-          - tarantool: '2.8'
+          - tarantool: '2.10'
             coveralls: true
     runs-on: [ubuntu-latest]
     steps:
