@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+- Add `trailing_slash` http route option.
+
 ## [1.3.0] - 2022-07-27
 
 ### Changed
