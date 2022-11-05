@@ -981,10 +981,6 @@ local function httpd_stop(self)
 end
 
 local function match_route(self, method, route)
-    -- route must have '/' at the begin and end
-    if string.match(route, '.$') ~= '/' then
-        route = route .. '/'
-    end
     if string.match(route, '^.') ~= '/' then
         route = '/' .. route
     end
@@ -995,8 +991,12 @@ local function match_route(self, method, route)
     local stash = {}
 
     for _, r in pairs(self.routes) do
-        if r.method == method or r.method == 'ANY' then
-            local m = { string.match(route, r.match)  }
+        local sroute = route
+        if r.method == method or r.method == 'ANY' then    
+            if r.trailing_slash and string.match(route, '.$') ~= '/' then
+                sroute = route .. '/'
+            end
+            local m = { string.match(sroute, r.match)  }
             local nfit
             if #m > 0 then
                 if #r.stash > 0 then
@@ -1145,6 +1145,7 @@ local function add_route(self, opts, sub)
     end
 
     opts = extend({method = 'ANY'}, opts, false)
+    opts = extend({trailing_slash = true}, opts, false)
 
     local ctx
     local action
@@ -1206,7 +1207,7 @@ local function add_route(self, opts, sub)
         table.insert(stash, name)
     end
 
-    if string.match(opts.match, '.$') ~= '/' then
+    if string.match(opts.match, '.$') ~= '/' and opts.trailing_slash then
         opts.match = opts.match .. '/'
     end
     if string.match(opts.match, '^.') ~= '/' then

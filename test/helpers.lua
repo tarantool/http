@@ -36,6 +36,10 @@ helpers.cfgserv = function(opts)
         :route({path = '/test', file = 'test.html.el' },
             function(cx) return cx:render({ title = 'title: 123' }) end)
 
+        :route({path = '/trailing_slash_f/a/b/*c', trailing_slash = false},
+            function(req) return req:render({text = req:stash("c")}) end)
+        :route({path = '/trailing_slash_t/a/b/*c', trailing_slash = true},
+        function(req) return req:render({text = req:stash("c")}) end)
     return httpd
 end
 
