@@ -417,3 +417,12 @@ g.test_content_type_header_without_render = function()
     t.assert_equals(r.status, 200)
     t.assert_equals(r.headers['content-type'], 'text/plain; charset=utf-8', 'content-type header')
 end
+
+g.test_get_dot_slash = function()
+    local httpd = g.httpd
+    httpd:route({
+        path = '/*dot_slash'
+    }, function() end)
+    local r = http_client.get(helpers.base_uri .. '/dot_slash.')
+    t.assert_equals(r.status, 200)
+end
