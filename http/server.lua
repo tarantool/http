@@ -746,10 +746,17 @@ local function parse_request(req)
     end
     p.path_raw = p.path
     p.path = uri_unescape(p.path)
-    if p.path:sub(1, 1) ~= "/" or p.path:find("./", nil, true) ~= nil then
+    if p.path:sub(1, 1) ~= "/" then
         p.error = "invalid uri"
         return p
     end
+    for _, path_segment in ipairs(p.path:split('/')) do
+        if path_segment == "." or path_segment == ".." then
+            p.error = "invalid uri"
+            return p
+        end
+    end
+
     return p
 end
 
