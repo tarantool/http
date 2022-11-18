@@ -992,7 +992,7 @@ local function match_route(self, method, route)
 
     for _, r in pairs(self.routes) do
         local sroute = route
-        if r.method == method or r.method == 'ANY' then    
+        if r.method == method or r.method == 'ANY' then
             if r.trailing_slash and string.match(route, '.$') ~= '/' then
                 sroute = route .. '/'
             end
