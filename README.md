@@ -242,6 +242,7 @@ end
 
 * `req.method` - HTTP request type (`GET`, `POST` etc).
 * `req.path` - request path.
+* `req.path_raw` - request path without decoding.
 * `req.query` - request arguments.
 * `req.proto` - HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`).
 * `req.headers` - normalized request headers. A normalized header
