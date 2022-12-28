@@ -242,6 +242,7 @@ end
 
 * `req.method` - HTTP request type (`GET`, `POST` etc).
 * `req.path` - request path.
+* `req.path_raw` - request path without decoding.
 * `req.query` - request arguments.
 * `req.proto` - HTTP version (for example, `{ 1, 1 }` is `HTTP/1.1`).
 * `req.headers` - normalized request headers. A normalized header
@@ -249,7 +250,7 @@ end
 * `req.peer` - a Lua table with information about the remote peer
   (like `socket:peer()`).
 * `tostring(req)` - returns a string representation of the request.
-* `req:request_line()` - returns the request body.
+* `req:request_line()` - returns a first line of the http request (for example, `PUT /path HTTP/1.1`).
 * `req:read(delimiter|chunk|{delimiter = x, chunk = x}, timeout)` - reads the
   raw request body as a stream (see `socket:read()`).
 * `req:json()` - returns a Lua table from a JSON request.
