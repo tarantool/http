@@ -8,6 +8,7 @@ set -e
 tarantoolctl rocks install luatest 0.5.7
 tarantoolctl rocks install luacheck 0.25.0
 tarantoolctl rocks install luacov 0.13.0
+tarantoolctl rocks install luafilesystem 1.7.0-2
 
 # cluacov, luacov-coveralls and dependencies
 tarantoolctl rocks install luacov-coveralls 0.2.3-1 --server=https://luarocks.org
