@@ -1294,6 +1294,7 @@ local function httpd_start(self)
 end
 
 local exports = {
+    _VERSION = require('http.version'),
     DETACHED = DETACHED,
 
     new = function(host, port, options)

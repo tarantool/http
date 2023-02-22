@@ -13,5 +13,6 @@ set_target_properties(httpd
 # Install
 install(TARGETS httpd LIBRARY DESTINATION ${TARANTOOL_INSTALL_LIBDIR}/http)
 install(FILES server.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)
+install(FILES version.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)
 install(FILES mime_types.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)
 install(FILES codes.lua DESTINATION ${TARANTOOL_INSTALL_LUADIR}/http)
