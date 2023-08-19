@@ -482,4 +482,33 @@ g.test_trailing_slash_t_get_with_encoded_slash_begging_and_end = function()
     local r = http_client.get(helpers.base_uri .. '/trailing_slash_t/a/b/%2Fc%2F')
     t.assert_equals(r.status, 200)
     t.assert_equals(r.body, '/c')
+
+g.test_get_dot_slash = function()
+    local httpd = g.httpd
+    httpd:route({
+        path = '/*dot_slash'
+    }, function() end)
+    local r = http_client.get(helpers.base_uri .. '/dot_slash.')
+    t.assert_equals(r.status, 200)
+end
+
+g.test_unwanted_content_type = function()
+    local httpd = g.httpd
+    httpd:route({
+        path = '/unwanted-content-type'
+    }, function(req)
+        local response = req:render{ json = req:param() }
+        response.status = 200
+        return response
+    end)
+
+    local opt = {
+        headers = {
+            ['Content-Type'] = 'application/json'
+        }
+    }
+    local r = http_client.get(helpers.base_uri .. '/unwanted-content-type', opt)
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, '[]')
+
 end

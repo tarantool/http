@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Add `trailing_slash` http route option.
 
+=======
+### Fixed
+- Fixed request crash with empty body and unexpected header Content-Type (#189)
+
+## [1.5.0] - 2023-03-29
+
+### Added
+
+- Add versioning support.
+
+### Fixed
+
+- Allow dot in path segment.
+
+## [1.4.0] - 2022-12-30
+
+### Added
+
+- Add path_raw field. This field contains request path without encoding.
+
 ## [1.3.0] - 2022-07-27
 
 ### Changed

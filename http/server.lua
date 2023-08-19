@@ -208,21 +208,25 @@ local function request_content_type(self)
 end
 
 local function post_param(self, name)
-    if self:content_type() == 'multipart/form-data' then
+    local body = self:read_cached()
+
+    if body == '' then
+        rawset(self, 'post_params', {})
+    elseif self:content_type() == 'multipart/form-data' then
         -- TODO: do that!
         rawset(self, 'post_params', {})
     elseif self:content_type() == 'application/json' then
         local params = self:json()
         rawset(self, 'post_params', params)
     elseif self:content_type() == 'application/x-www-form-urlencoded' then
-        local params = lib.params(self:read_cached())
+        local params = lib.params(body)
         local pres = {}
         for k, v in pairs(params) do
             pres[ uri_unescape(k) ] = uri_unescape(v, true)
         end
         rawset(self, 'post_params', pres)
     else
-        local params = lib.params(self:read_cached())
+        local params = lib.params(body)
         local pres = {}
         for k, v in pairs(params) do
             pres[ uri_unescape(k) ] = uri_unescape(v)
@@ -746,10 +750,17 @@ local function parse_request(req)
     end
     p.path_raw = p.path
     p.path = uri_unescape(p.path)
-    if p.path:sub(1, 1) ~= "/" or p.path:find("./", nil, true) ~= nil then
+    if p.path:sub(1, 1) ~= "/" then
         p.error = "invalid uri"
         return p
     end
+    for _, path_segment in ipairs(p.path:split('/')) do
+        if path_segment == "." or path_segment == ".." then
+            p.error = "invalid uri"
+            return p
+        end
+    end
+
     return p
 end
 
@@ -1295,6 +1306,7 @@ local function httpd_start(self)
 end
 
 local exports = {
+    _VERSION = require('http.version'),
     DETACHED = DETACHED,
 
     new = function(host, port, options)
