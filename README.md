@@ -67,10 +67,10 @@ You can:
   make install
   ```
 
-* install the `http` module using `tarantoolctl`:
+* install the `http` module using [tt](https://github.com/tarantool/tt):
 
   ``` bash
-  tarantoolctl rocks install http
+  tt rocks install http
   ```
 
 * install the `http` module using LuaRocks
