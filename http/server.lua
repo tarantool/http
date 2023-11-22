@@ -754,12 +754,6 @@ local function parse_request(req)
         p.error = "invalid uri"
         return p
     end
-    for _, path_segment in ipairs(p.path:split('/')) do
-        if path_segment == "." or path_segment == ".." then
-            p.error = "invalid uri"
-            return p
-        end
-    end
 
     return p
 end
