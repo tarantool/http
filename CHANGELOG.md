@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+- Add `trailing_slash` http route option.
+
+=======
 ### Fixed
 - Fixed request crash with empty body and unexpected header Content-Type (#189)
 

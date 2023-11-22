@@ -418,6 +418,71 @@ g.test_content_type_header_without_render = function()
     t.assert_equals(r.headers['content-type'], 'text/plain; charset=utf-8', 'content-type header')
 end
 
+g.test_trailing_slash_f_get = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b/c')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, 'c')
+end
+
+g.test_trailing_slash_f_get_with_slash_at_begging = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b//c')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, '/c')
+end
+
+g.test_trailing_slash_f_get_with_slash_at_begging_and_end = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b//c/')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, '/c/')
+end
+
+g.test_trailing_slash_f_get_with_slash = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b/c/')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, 'c/')
+end
+
+g.test_trailing_slash_f_get_with_encoded_slash_begging = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b/%2Fc')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, '/c')
+end
+
+g.test_trailing_slash_f_get_with_encoded_slash_begging_and_end = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b/%2Fc%2F')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, '/c/')
+end
+
+g.test_trailing_slash_f_get_html = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b/c.htm')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, 'c.htm')
+end
+
+g.test_trailing_slash_f_get_long = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b/c/d/e')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, 'c/d/e')
+end
+
+g.test_trailing_slash_f_get_long_with_slash_end = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_f/a/b/c/d/e/')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, 'c/d/e/')
+end
+
+g.test_trailing_slash_t_get_with_slash_at_begging_and_end = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_t/a/b//c/')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, '/c')
+end
+
+g.test_trailing_slash_t_get_with_encoded_slash_begging_and_end = function()
+    local r = http_client.get(helpers.base_uri .. '/trailing_slash_t/a/b/%2Fc%2F')
+    t.assert_equals(r.status, 200)
+    t.assert_equals(r.body, '/c')
+
 g.test_get_dot_slash = function()
     local httpd = g.httpd
     httpd:route({
@@ -445,4 +510,5 @@ g.test_unwanted_content_type = function()
     local r = http_client.get(helpers.base_uri .. '/unwanted-content-type', opt)
     t.assert_equals(r.status, 200)
     t.assert_equals(r.body, '[]')
+
 end

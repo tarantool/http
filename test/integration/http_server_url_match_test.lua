@@ -46,4 +46,18 @@ g.test_server_url_match = function()
                    '-123-dea/1/2/3', '/abb-123-dea/1/2/3/cde')
     t.assert_equals(httpd:match('GET', '/banners/1wulc.z8kiy.6p5e3').stash.token,
                    '1wulc.z8kiy.6p5e3', 'stash with dots')
+
+    t.assert_equals(httpd:match('GET', '/trailing_slash_t/a/b/c').endpoint.path, '/trailing_slash_t/a/b/*c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_t/a/b/c').stash.c, 'c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_t/a/b//c/').endpoint.path, '/trailing_slash_t/a/b/*c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_t/a/b//c/').stash.c, '/c')
+
+    t.assert_equals(httpd:match('GET', '/trailing_slash_f/a/b/c').endpoint.path, '/trailing_slash_f/a/b/*c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_f/a/b/c').stash.c, 'c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_f/a/b//c').endpoint.path, '/trailing_slash_f/a/b/*c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_f/a/b//c').stash.c, '/c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_f/a/b//c/').endpoint.path, '/trailing_slash_f/a/b/*c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_f/a/b//c/').stash.c, '/c/')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_f/a/b/c.htm').endpoint.path, '/trailing_slash_f/a/b/*c')
+    t.assert_equals(httpd:match('GET', '/trailing_slash_f/a/b/c.htm').stash.c, 'c.htm')
 end
