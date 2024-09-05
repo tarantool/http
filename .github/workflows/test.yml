@@ -10,17 +10,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tarantool: ['1.10', '2.5', '2.6', '2.7', '2.8']
+        tarantool: ['1.10', '2.10', '2.11', '3.1', '3.2']
         coveralls: [false]
         include:
-          - tarantool: '2.10'
+          - tarantool: '2.11'
             coveralls: true
     runs-on: [ubuntu-20.04]
     steps:
       - uses: actions/checkout@master
-      - uses: tarantool/setup-tarantool@v1
+      - uses: tarantool/setup-tarantool@v3
         with:
           tarantool-version: ${{ matrix.tarantool }}
+
+      - name: Prepare the repo
+        run: curl -L https://tarantool.io/release/2/installer.sh | bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+
+      - name: Install tt cli
+        run: sudo apt install -y tt=2.4.0
+        env:
+          DEBIAN_FRONTEND: noninteractive
 
       - name: Cache rocks
         uses: actions/cache@v2
@@ -40,8 +50,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run tests and code coverage analysis
-        run: make -C build coverage
+      - name: Run tests without code coverage analysis
+        run: make -C build luatest
+        if: matrix.coveralls != true
 
       - name: Send code coverage to coveralls.io
         run: make -C build coveralls
