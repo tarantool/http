@@ -48,6 +48,8 @@ http v2 revert and decisions regarding each reverted commit see
   * [before\_dispatch(httpd, req)](#before_dispatchhttpd-req)
   * [after\_dispatch(cx, resp)](#after_dispatchcx-resp)
 * [Using a special socket](#using-a-special-socket)
+* [Roles](#roles)
+  * [roles.httpd](#roleshttpd)
 * [See also](#see-also)
 
 ## Prerequisites
@@ -501,6 +503,114 @@ server:start()
 ```
 
 [socket_ref]: https://www.tarantool.io/en/doc/latest/reference/reference_lua/socket/#socket-tcp-server
+
+## Roles
+
+Tarantool 3 roles could be accessed from this project.
+
+### `roles.httpd`
+
+It allows configuring one or more HTTP servers. Those servers could be reused
+by several other roles.
+
+Example of the configuration:
+
+```yaml
+roles_cfg:
+  roles.httpd:
+    default:
+    - listen: 8081
+    additional:
+    - listen: '127.0.0.1:8082'
+```
+
+Server address should be provided either as a URI or as a single port
+(in this case, `0.0.0.0` address is used).
+
+User can access every working HTTP server from the configuration by name,
+using `require('roles.httpd').get_server(name)` method.
+If the `name` argument is `nil`, the default server is returned
+(its name should be equal to constant
+`require('roles.httpd').DEFAULT_SERVER_NAME`, which is `"default"`).
+
+Let's look at the example of using this role. Consider a new role
+`roles/hello_world.lua`:
+```lua
+local M = { dependencies = { 'roles.httpd' } }
+local server = {}
+
+M.validate = function(conf)
+    if conf == nil or conf.httpd == nil then
+        error("httpd must be set")
+    end
+    local server = require('roles.httpd').get_server(conf.httpd)
+    if server == nil then
+        error("the httpd server " .. conf.httpd .. " not found")
+    end
+end
+
+M.apply = function(conf)
+    server = require('roles.httpd').get_server(conf.httpd)
+
+    server:route({
+        path = '/hello/world',
+        name = 'greeting',
+    }, function(tx)
+        return tx:render({text = 'Hello, world!'})
+    end)
+end
+
+M.stop = function()
+    server:delete('greeting')
+end
+
+return M
+```
+
+This role accepts a server by name from a config and creates a route to return 
+`Hello, world!` to every request by this route.
+
+Then we need to write a simple config to start the Tarantool instance via
+`tt`:
+```yaml
+app:
+  file: 'myapp.lua'
+
+groups:
+  group001:
+    replicasets:
+      replicaset001:
+        roles: [roles.httpd, roles.hello_world]
+        roles_cfg:
+          roles.httpd:
+            default:
+              listen: 8081
+            additional:
+              listen: '127.0.0.1:8082'
+          roles.hello_world:
+            httpd: 'additional'
+        instances:
+          instance001:
+            iproto:
+              listen:
+                - uri: '127.0.0.1:3301'
+```
+
+Next step, we need to start this instance using `tt start`:
+```bash
+$ tt start
+   • Starting an instance [app:instance001]...
+$ tt status
+ INSTANCE         STATUS   PID      MODE 
+ app:instance001  RUNNING  2499387  RW
+```
+
+And then, we can get the greeting by running a simple curl command from a
+terminal:
+```bash
+$ curl http://127.0.0.1:8082/hello/world
+Hello, world!
+```
 
 ## See also
 

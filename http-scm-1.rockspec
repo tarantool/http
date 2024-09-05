@@ -31,6 +31,7 @@ build = {
         ['http.version'] = 'http/version.lua',
         ['http.mime_types'] = 'http/mime_types.lua',
         ['http.codes'] = 'http/codes.lua',
+        ['roles.httpd'] = 'roles/httpd.lua',
     }
 }
 

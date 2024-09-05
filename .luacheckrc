@@ -9,6 +9,8 @@ ignore = {
     "143/string",
     -- Accessing an undefined field of a global variable <table>.
     "143/table",
+    -- Accessing an undefined field of a global variable <package>.
+    "143/package",
     -- Unused argument <self>.
     "212/self",
     -- Redefining a local variable.

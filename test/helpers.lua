@@ -4,6 +4,9 @@ local socket = require('socket')
 
 local helpers = table.copy(require('luatest').helpers)
 
+local luatest = require('luatest')
+local luatest_utils = require('luatest.utils')
+
 helpers.base_port = 12345
 helpers.base_host = '127.0.0.1'
 helpers.base_uri = ('http://%s:%s'):format(helpers.base_host, helpers.base_port)
@@ -99,6 +102,27 @@ helpers.teardown = function(httpd)
         end
         assert(s == nil, 'http server is stopped')
     end)
+end
+
+helpers.is_tarantool3 = function()
+    local tarantool_version = luatest_utils.get_tarantool_version()
+    return luatest_utils.version_ge(tarantool_version, luatest_utils.version(3, 0, 0))
+end
+
+helpers.skip_if_not_tarantool3 = function()
+    luatest.skip_if(not helpers.is_tarantool3(), 'Only Tarantool 3 is supported')
+end
+
+helpers.update_lua_env_variables = function(server)
+    local ROOT = fio.dirname(fio.dirname(fio.abspath(package.search('http.server'))))
+
+    server.env.LUA_PATH = (server.env.LUA_PATH or '') ..
+        ROOT .. '/?.lua;' .. ROOT .. '/?/?.lua;' ..
+        ROOT .. '/.rocks/share/tarantool/?.lua;' ..
+        ROOT .. '/.rocks/share/tarantool/?/init.lua;'
+    server.env.LUA_CPATH = (server.env.LUA_CPATH or '') ..
+        ROOT .. '/.rocks/lib/tarantool/?.so;' ..
+        ROOT .. '/.rocks/lib/tarantool/?/?.so;'
 end
 
 return helpers
