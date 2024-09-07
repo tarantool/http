@@ -1260,6 +1260,23 @@ local function add_route(self, opts, sub)
     return self
 end
 
+local function delete_route(self, name)
+    local route = self.iroutes[name]
+    if route == nil then
+        return
+    end
+
+    self.iroutes[name] = nil
+    table.remove(self.routes, route)
+
+    -- Update iroutes numeration.
+    for n, r in ipairs(self.routes) do
+        if r.name then
+            self.iroutes[r.name] = n
+        end
+    end
+end
+
 local function url_for_httpd(httpd, name, args, query)
 
     local idx = httpd.iroutes[ name ]
@@ -1357,6 +1374,7 @@ local exports = {
 
             -- methods
             route   = add_route,
+            delete  = delete_route,
             match   = match_route,
             helper  = set_helper,
             hook    = set_hook,
