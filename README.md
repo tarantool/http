@@ -184,6 +184,13 @@ httpd:route({ path = '/objects', method = 'GET' }, handle3)
 ...
 ```
 
+To delete a named route, use `delete()` method of the `httpd` object:
+
+```lua
+httpd:route({ path = '/path/to', name = 'route' }, 'controller#action')
+httpd:delete('route')
+```
+
 The first argument for `route()` is a Lua table with one or more keys:
 
 * `file` - a template file name (can be relative to.

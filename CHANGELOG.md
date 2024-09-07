@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 - `roles.httpd` role to configure one or more HTTP servers (#196)
+- `httpd:delete(name)` method to delete named routes (#197)
 
 ## [1.5.0] - 2023-03-29
 
