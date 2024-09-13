@@ -6,14 +6,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
 ### Fixed
 
-- Fixed request crash with empty body and unexpected header Content-Type (#189)
+## [1.6.0] - 2024-09-13
+
+The release introduces a role for Tarantool 3.
+
+### Fixed
+
+- Fixed request crash with empty body and unexpected header
+  Content-Type (#189).
 
 ### Added
 
-- `roles.httpd` role to configure one or more HTTP servers (#196)
-- `httpd:delete(name)` method to delete named routes (#197)
+- `roles.httpd` role to configure one or more HTTP servers (#196).
+- `httpd:delete(name)` method to delete named routes (#197).
 
 ## [1.5.0] - 2023-03-29
 
