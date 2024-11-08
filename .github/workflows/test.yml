@@ -28,9 +28,12 @@ jobs:
           DEBIAN_FRONTEND: noninteractive
 
       - name: Install tt cli
-        run: sudo apt install -y tt=2.4.0
+        run: sudo apt install -y tt=2.5.2
         env:
           DEBIAN_FRONTEND: noninteractive
+
+      - name: Install Tarantool
+        run: tt install tarantool ${{ matrix.tarantool }} --dynamic
 
       - name: Cache rocks
         uses: actions/cache@v2
