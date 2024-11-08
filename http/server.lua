@@ -1,6 +1,7 @@
 -- http.server
 
 local lib = require('http.lib')
+local sslsocket_supported, sslsocket = pcall(require, 'http.sslsocket')
 
 local fio = require('fio')
 local require = require
@@ -1295,6 +1296,54 @@ local function url_for_httpd(httpd, name, args, query)
     end
 end
 
+local function create_ssl_ctx(host, port, opts)
+    local ok, ctx = pcall(sslsocket.ctx, sslsocket.tls_server_method())
+    if ok ~= true then
+        error(ctx)
+    end
+
+    local rc = sslsocket.ctx_use_private_key_file(ctx, opts.ssl_key_file,
+        opts.ssl_password, opts.ssl_password_file)
+    if rc == false then
+        errorf(
+            "Can't start server on %s:%s: %s %s",
+            host, port, 'Private key is invalid or password mismatch', opts.ssl_key_file
+        )
+    end
+
+    rc = sslsocket.ctx_use_certificate_file(ctx, opts.ssl_cert_file)
+    if rc == false then
+        errorf(
+            "Can't start server on %s:%s: %s %s",
+            host, port, 'Certificate is invalid', opts.ssl_cert_file
+        )
+    end
+
+    if opts.ssl_ca_file ~= nil then
+        rc = sslsocket.ctx_load_verify_locations(ctx, opts.ssl_ca_file)
+        if rc == false then
+            errorf(
+                "Can't start server on %s:%s: %s",
+                host, port, 'CA file is invalid'
+            )
+        end
+
+        sslsocket.ctx_set_verify(ctx, 0x01 + 0x02)
+    end
+
+    if opts.ssl_ciphers ~= nil then
+        rc = sslsocket.ctx_set_cipher_list(ctx, opts.ssl_ciphers)
+        if rc == false then
+            errorf(
+                "Can't start server on %s:%s: %s",
+                host, port, 'Ciphers are invalid'
+            )
+        end
+    end
+
+    return ctx
+end
+
 local function httpd_start(self)
     if type(self) ~= 'table' then
         error("httpd: usage: httpd:start()")
@@ -1321,6 +1370,36 @@ local function httpd_start(self)
     return self
 end
 
+-- validate_ssl_opts validates ssl_opts and returns true if at least ssl_cert_file
+-- and ssl_key_file parameters are not nil.
+local function validate_ssl_opts(opts)
+    local is_tls_enabled = false
+
+    for key, value in pairs(opts) do
+        if value ~= nil then
+            is_tls_enabled = true
+
+            if type(value) ~= 'string' then
+                errorf("%s option must be a string", key)
+            end
+
+            if string.find(key, 'file') ~= nil and fio.path.exists(value) ~= true then
+                errorf("file %q not exists", value)
+            end
+        end
+    end
+
+    if is_tls_enabled and (opts.ssl_key_file == nil or opts.ssl_cert_file == nil) then
+        error("ssl_key_file and ssl_cert_file must be set to enable TLS")
+    end
+
+    if not sslsocket_supported then
+        error("ssl socket is not supported")
+    end
+
+    return is_tls_enabled
+end
+
 local exports = {
     _VERSION = require('http.version'),
     DETACHED = DETACHED,
@@ -1340,6 +1419,15 @@ local exports = {
            type(options.idle_timeout) ~= 'number' then
             error('Option idle_timeout must be a number.')
         end
+
+        local is_tls_enabled = validate_ssl_opts({
+            ssl_cert_file = options.ssl_cert_file,
+            ssl_key_file = options.ssl_key_file,
+            ssl_password = options.ssl_password,
+            ssl_password_file = options.ssl_password_file,
+            ssl_ca_file = options.ssl_ca_file,
+            ssl_ciphers = options.ssl_ciphers,
+        })
 
         local default = {
             max_header_size     = 4096,
@@ -1363,7 +1451,8 @@ local exports = {
             is_run  = false,
             stop    = httpd_stop,
             start   = httpd_start,
-            options = extend(default, options, true),
+            use_tls = is_tls_enabled,
+            options = extend(default, options, false),
 
             routes  = {  },
             iroutes = {  },
@@ -1398,6 +1487,20 @@ local exports = {
                 postprocess_client_handler = function() end,
             }
         }
+
+        if self.use_tls then
+            self.tcp_server_f = function(host, port, handler, timeout)
+                local ssl_ctx = create_ssl_ctx(host, port, {
+                    ssl_cert_file = self.options.ssl_cert_file,
+                    ssl_key_file = self.options.ssl_key_file,
+                    ssl_password = self.options.ssl_password,
+                    ssl_password_file = self.options.ssl_password_file,
+                    ssl_ca_file = self.options.ssl_ca_file,
+                    ssl_ciphers = self.options.ssl_ciphers,
+                })
+                return sslsocket.tcp_server(host, port, handler, timeout, ssl_ctx)
+            end
+        end
 
         return self
     end,

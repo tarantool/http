@@ -151,6 +151,13 @@ httpd = require('http.server').new(host, port[, { options } ])
 * `idle_timeout` - maximum amount of time an idle (keep-alive) connection will
   remain idle before closing. When the idle timeout is exceeded, HTTP server
   closes the keepalive connection. Default value: 0 seconds (disabled).
+* TLS options (to enable it, provide at least one of the following parameters):
+    * `ssl_cert_file` is a path to the SSL cert file, mandatory;
+    * `ssl_key_file` is a path to the SSL key file, mandatory;
+    * `ssl_ca_file` is a path to the SSL CA file, optional;
+    * `ssl_ciphers` is a colon-separated list of SSL ciphers, optional;
+    * `ssl_password` is a password for decrypting SSL private key, optional;
+    * `ssl_password_file` is a SSL file with key for decrypting SSL private key, optional.
 
 ## Using routes
 
