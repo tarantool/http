@@ -10,10 +10,15 @@ local luatest_utils = require('luatest.utils')
 helpers.base_port = 12345
 helpers.base_host = '127.0.0.1'
 helpers.base_uri = ('http://%s:%s'):format(helpers.base_host, helpers.base_port)
+helpers.tls_uri = ('https://%s:%s'):format('localhost', helpers.base_port)
+
+helpers.get_testdir_path = function()
+    local path = os.getenv('LUA_SOURCE_DIR') or './'
+    return fio.pathjoin(path, 'test')
+end
 
 helpers.cfgserv = function(opts)
-    local path = os.getenv('LUA_SOURCE_DIR') or './'
-    path = fio.pathjoin(path, 'test')
+    local path = helpers.get_testdir_path()
 
     local opts = opts or {}
     local opts = http_server.internal.extend({
