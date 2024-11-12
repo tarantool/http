@@ -581,6 +581,22 @@ end
 return M
 ```
 
+To enable TLS, provide the following params into roles config (for proper work
+it's enough to provide only `ssl_key_file` and `ssl_cert_file`):
+
+```yaml
+roles_cfg:
+  roles.httpd:
+    default:
+        listen: 8081
+        ssl_key_file: "path/to/key/file"
+        ssl_cert_file: "path/to/key/file"
+        ssl_ca_file: "path/to/key/file"
+        ssl_ciphers: "cipher1:cipher2"
+        ssl_password: "password"
+        ssl_password_file: "path/to/ssl/password"
+```
+
 This role accepts a server by name from a config and creates a route to return 
 `Hello, world!` to every request by this route.
 

@@ -72,6 +72,19 @@ local function parse_listen(listen)
     return host, port, nil
 end
 
+-- parse_params returns table with set options from config to pass
+-- it into new() function.
+local function parse_params(node)
+    return {
+        ssl_cert_file = node.ssl_cert_file,
+        ssl_key_file = node.ssl_key_file,
+        ssl_password = node.ssl_password,
+        ssl_password_file = node.ssl_password_file,
+        ssl_ca_file = node.ssl_ca_file,
+        ssl_ciphers = node.ssl_ciphers,
+    }
+end
+
 local function apply_http(name, node)
     local host, port, err = parse_listen(node.listen)
     if err ~= nil then
@@ -79,7 +92,8 @@ local function apply_http(name, node)
     end
 
     if servers[name] == nil then
-        local httpd = http_server.new(host, port)
+        local httpd = http_server.new(host, port, parse_params(node))
+
         httpd:start()
         servers[name] = {
             httpd = httpd,
@@ -99,9 +113,14 @@ M.validate = function(conf)
             error("name of the server must be a string")
         end
 
-        local _, _, err = parse_listen(node.listen)
+        local host, port, err = parse_listen(node.listen)
         if err ~= nil then
             error("failed to parse http 'listen' param: " .. err)
+        end
+
+        local ok, err = pcall(http_server.new, host, port, parse_params(node))
+        if not ok then
+            error("failed to parse params in " .. name .. " server: " .. tostring(err))
         end
     end
 end

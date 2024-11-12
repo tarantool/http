@@ -2,6 +2,10 @@ local t = require('luatest')
 local g = t.group()
 
 local httpd_role = require('roles.httpd')
+local helpers = require('test.helpers')
+local fio = require('fio')
+
+local ssl_data_dir = fio.abspath(fio.pathjoin(helpers.get_testdir_path(), "ssl_data"))
 
 g.after_each(function()
     httpd_role.stop()
@@ -121,6 +125,89 @@ local validation_cases = {
             },
         },
         err = "failed to parse http 'listen' param: URI query component is not supported",
+    },
+    ["ssl_ok_minimal"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                ssl_key_file = fio.pathjoin(ssl_data_dir, 'server.key'),
+                ssl_cert_file = fio.pathjoin(ssl_data_dir, 'server.crt')
+            },
+        },
+    },
+    ["ssl_ok_full"] = {
+        cfg = {
+            server = {
+                listen = 123,
+                ssl_key_file = fio.pathjoin(ssl_data_dir, 'server.key'),
+                ssl_cert_file = fio.pathjoin(ssl_data_dir, 'server.crt'),
+                ssl_ca_file = fio.pathjoin(ssl_data_dir, 'ca.crt'),
+                ssl_ciphers = "ECDHE-RSA-AES256-GCM-SHA384",
+            },
+        },
+    },
+    ["ssl_key_file_not_string"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                ssl_key_file = 123,
+            },
+        },
+        err = "ssl_key_file option must be a string",
+    },
+    ["ssl_cert_file_not_string"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                ssl_cert_file = 123,
+            },
+        },
+        err = "ssl_cert_file option must be a string",
+    },
+    ["ssl_password_not_string"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                ssl_password = 123,
+            },
+        },
+        err = "ssl_password option must be a string",
+    },
+    ["ssl_password_file_not_string"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                ssl_password_file = 123,
+            },
+        },
+        err = "ssl_password_file option must be a string",
+    },
+    ["ssl_ca_file_not_string"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                ssl_ca_file = 123,
+            },
+        },
+        err = "ssl_ca_file option must be a string",
+    },
+    ["ssl_ciphers_not_string"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                ssl_ciphers = 123,
+            },
+        },
+        err = "ssl_ciphers option must be a string",
+    },
+    ["ssl_key_and_cert_must_exist"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                ssl_ciphers = 'cipher1:cipher2',
+            },
+        },
+        err = "ssl_key_file and ssl_cert_file must be set to enable TLS",
     },
 }
 
