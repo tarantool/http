@@ -533,9 +533,9 @@ Example of the configuration:
 roles_cfg:
   roles.httpd:
     default:
-    - listen: 8081
+      listen: 8081
     additional:
-    - listen: '127.0.0.1:8082'
+      listen: '127.0.0.1:8082'
 ```
 
 Server address should be provided either as a URI or as a single port
