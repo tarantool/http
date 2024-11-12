@@ -1404,6 +1404,8 @@ local exports = {
     _VERSION = require('http.version'),
     DETACHED = DETACHED,
 
+    -- Since TLS support this function uses in roles's validate section to check
+    -- TLS options.
     new = function(host, port, options)
         if options == nil then
             options = {}
