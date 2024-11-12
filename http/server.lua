@@ -1393,7 +1393,7 @@ local function validate_ssl_opts(opts)
         error("ssl_key_file and ssl_cert_file must be set to enable TLS")
     end
 
-    if not sslsocket_supported then
+    if is_tls_enabled and not sslsocket_supported then
         error("ssl socket is not supported")
     end
 
