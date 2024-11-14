@@ -28,6 +28,7 @@ build = {
             }
         },
         ['http.server'] = 'http/server.lua',
+        ['http.sslsocket'] = 'http/sslsocket.lua',
         ['http.version'] = 'http/version.lua',
         ['http.mime_types'] = 'http/mime_types.lua',
         ['http.codes'] = 'http/codes.lua',
