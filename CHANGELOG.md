@@ -8,12 +8,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
-- SSL support (#35).
-- SSL support into roles (#199).
-
 ### Changed
 
 ### Fixed
+
+## [1.7.0] - 2024-11-15
+
+The release introduces a TLS support.
+
+### Added
+
+- SSL support (#35).
+- SSL support into roles (#199).
 
 ## [1.6.0] - 2024-09-13
 
