@@ -16,7 +16,7 @@ jobs:
     - name: Setup Tarantool
       uses: tarantool/setup-tarantool@v3
       with:
-        tarantool-version: '2.8'
+        tarantool-version: '2.11'
 
     - name: Setup luacheck
       run: tarantoolctl rocks install luacheck 0.25.0
