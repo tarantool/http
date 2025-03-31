@@ -12,7 +12,7 @@ on:
 jobs:
   # Run not only on tags, otherwise dependent job will skip.
   version-check:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Check module version
         # We need this step to run only on push with tag.
