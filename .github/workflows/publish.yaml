@@ -20,7 +20,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
           auth: ${{ secrets.ROCKS_AUTH }}
@@ -50,8 +50,8 @@ jobs:
       # LuaJIT's FFI and tarantool specific features are okay.
       #
       # [1]: https://github.com/luarocks/luarocks/wiki/Types-of-rocks
-      - uses: actions/checkout@v2
-      - uses: tarantool/setup-tarantool@v1
+      - uses: actions/checkout@v3
+      - uses: tarantool/setup-tarantool@v3
         with:
           tarantool-version: '2.5'
 
