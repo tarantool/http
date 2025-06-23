@@ -130,4 +130,12 @@ helpers.update_lua_env_variables = function(server)
         ROOT .. '/.rocks/lib/tarantool/?/?.so;'
 end
 
+helpers.tcp_connection_exists = function(host, port)
+    local tcp = socket.tcp()
+    tcp:settimeout(0.3)
+    local ok, _ = tcp:connect(host, port)
+    tcp:close()
+    return ok
+end
+
 return helpers

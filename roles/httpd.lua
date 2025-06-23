@@ -130,8 +130,20 @@ M.apply = function(conf)
     -- a meaningful error if something goes wrong.
     M.validate(conf)
 
+    local actual_servers = {}
+
     for name, node in pairs(conf or {}) do
+        actual_servers[name] = true
+
         apply_http(name, node)
+    end
+
+    -- Stop server if it is not used anymore.
+    for name, server in pairs(servers) do
+        if actual_servers[name] == nil then
+            server.httpd:stop()
+            servers[name] = nil
+        end
     end
 end
 

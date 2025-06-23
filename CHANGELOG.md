@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+- Removing the server if it is not in use (#212).
+
 ## [1.7.0] - 2024-11-15
 
 The release introduces a TLS support.
