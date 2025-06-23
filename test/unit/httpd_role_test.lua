@@ -291,3 +291,23 @@ g.test_stop_unused_servers = function()
     t.assert(httpd_role.get_server())
     t.assert_equals(httpd_role.get_server('additional'))
 end
+
+g.test_edit_server_address = function()
+    local cfg = {
+        [httpd_role.DEFAULT_SERVER_NAME] = {
+            listen = 13001,
+        },
+    }
+
+    httpd_role.apply(cfg)
+    local result = httpd_role.get_server()
+    t.assert(result)
+    t.assert_equals(result.port, cfg[httpd_role.DEFAULT_SERVER_NAME].listen)
+
+    cfg[httpd_role.DEFAULT_SERVER_NAME].listen = 13002
+
+    httpd_role.apply(cfg)
+    result = httpd_role.get_server()
+    t.assert(result)
+    t.assert_equals(result.port, cfg[httpd_role.DEFAULT_SERVER_NAME].listen)
+end
