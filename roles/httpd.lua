@@ -1,5 +1,6 @@
 local checks = require('checks')
 local urilib = require('uri')
+local log = require('log')
 local http_server = require('http.server')
 
 local M = {
@@ -75,7 +76,28 @@ end
 -- parse_params returns table with set options from config to pass
 -- it into new() function.
 local function parse_params(node)
+    local log_requests = node.log_requests
+    if type(log_requests) == "string" then
+        local level = log_requests:lower()
+        if level == "error" then
+            log_requests = log.error
+        elseif level == "warn" then
+            log_requests = log.warn
+        elseif level == "info" then
+            log_requests = log.info
+        elseif level == "verbose" then
+            log_requests = log.verbose
+        elseif level == "debug" then
+            log_requests = log.debug
+        else
+            error("invalid log_requests: " .. log_requests)
+        end
+    elseif log_requests ~= nil then
+        error("log_requests option should be a string")
+    end
+
     return {
+        log_requests = log_requests,
         ssl_cert_file = node.ssl_cert_file,
         ssl_key_file = node.ssl_key_file,
         ssl_password = node.ssl_password,
