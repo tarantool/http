@@ -8,11 +8,13 @@ M.apply = function(conf)
     for _, server in pairs(conf) do
         servers[server.id] = require('roles.httpd').get_server(server.name)
 
-        servers[server.id]:route({
-            path = '/ping',
-        }, function(tx)
-            return tx:render({text = 'pong'})
-        end)
+        if servers[server.id] ~= nil then
+            servers[server.id]:route({
+                path = '/ping',
+            }, function(tx)
+                return tx:render({text = 'pong'})
+            end)
+        end
     end
 end
 

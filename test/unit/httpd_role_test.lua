@@ -268,3 +268,26 @@ g['test_get_server_bad_type'] = function()
     t.assert_not(ok)
     t.assert_str_contains(res, '?string expected, got table')
 end
+
+g.test_stop_unused_servers = function()
+    local cfg = {
+        [httpd_role.DEFAULT_SERVER_NAME] = {
+            listen = 13001,
+        },
+        additional = {
+            listen = 13002,
+        },
+    }
+
+    httpd_role.apply(cfg)
+    for name, body in pairs(cfg) do
+        local res = httpd_role.get_server(name)
+        t.assert(res)
+        t.assert_equals(res.port, body.listen)
+    end
+
+    cfg.additional = nil
+    httpd_role.apply(cfg)
+    t.assert(httpd_role.get_server())
+    t.assert_equals(httpd_role.get_server('additional'))
+end

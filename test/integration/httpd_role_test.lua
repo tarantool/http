@@ -115,3 +115,17 @@ g.test_httpd_role_usage = function(cg)
         'return require("test.mocks.mock_role").get_server_port(2)'
     ), 13001)
 end
+
+g.test_stop_server_after_remove = function(cg)
+    local resp = http_client:get('http://localhost:13001/ping')
+    t.assert_equals(resp.status, 200, 'response not 200')
+    t.assert_equals(resp.body, 'pong')
+
+    local cfg = table.deepcopy(config)
+    cfg.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.httpd'].additional = nil
+    treegen.write_file(cg.server.chdir, 'config.yaml', yaml.encode(cfg))
+    local _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+
+    t.assert_not(helpers.tcp_connection_exists('localhost', 13001))
+end
