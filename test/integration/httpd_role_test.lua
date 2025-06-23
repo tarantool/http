@@ -9,7 +9,20 @@ local http_client = require('http.client').new()
 
 local helpers = require('test.helpers')
 
-local g = t.group(nil, t.helpers.matrix({use_tls = {true, false}}))
+local LOG_LEVEL = {
+    INFO = 5,
+    VERBOSE = 6,
+    DEBUG = 7,
+}
+
+local g = t.group(nil, t.helpers.matrix({
+    use_tls = {true, false},
+    log_level = {
+        LOG_LEVEL.INFO,
+        LOG_LEVEL.VERBOSE,
+        LOG_LEVEL.DEBUG,
+    },
+}))
 
 local ssl_data_dir = fio.abspath(fio.pathjoin(helpers.get_testdir_path(), "ssl_data"))
 
@@ -36,10 +49,16 @@ local config = {
                         ['roles.httpd'] = {
                             default = {
                                 listen = 13000,
+                                log_requests = 'info',
                             },
                             additional = {
                                 listen = 13001,
-                            }
+                                log_requests = 'verbose',
+                            },
+                            additional_debug = {
+                                listen = 13002,
+                                log_requests = 'debug',
+                            },
                         },
                         ['test.mocks.mock_role'] = {
                             {
@@ -49,6 +68,10 @@ local config = {
                                 id = 2,
                                 name = 'additional',
                             },
+                            {
+                                id = 3,
+                                name = 'additional_debug',
+                            }
                         },
                     },
                     instances = {
@@ -79,6 +102,8 @@ g.before_each(function(cg)
     if cg.params.use_tls then
         cfg = tls_config
     end
+
+    cfg.log = {level = cg.params.log_level}
 
     local config_file = treegen.write_file(dir, 'config.yaml',
         yaml.encode(cfg))
@@ -145,4 +170,33 @@ g.test_change_server_addr_on_the_run = function(cg)
     resp = http_client:get('http://localhost:13001/ping')
     t.assert_equals(resp.status, 200, 'response not 200')
     t.assert_equals(resp.body, 'pong')
+end
+
+g.test_log_requests = function(cg)
+    t.skip_if(cg.params.use_tls)
+
+    local function make_request(address)
+        local resp = http_client:get(string.format('http://%s/ping', address))
+        t.assert_equals(resp.status, 200, 'response not 200')
+    end
+
+    local function assert_should_log(expected)
+        local grep_res = cg.server:grep_log('GET /ping', math.huge)
+        if expected then
+            t.assert(grep_res)
+        else
+            t.assert_not(grep_res)
+        end
+    end
+
+    local log_level = tonumber(cg.params.log_level)
+
+    make_request('localhost:13002')
+    assert_should_log(log_level >= LOG_LEVEL.DEBUG)
+
+    make_request('localhost:13001')
+    assert_should_log(log_level >= LOG_LEVEL.VERBOSE)
+
+    make_request('localhost:13000')
+    assert_should_log(log_level >= LOG_LEVEL.INFO)
 end

@@ -209,6 +209,24 @@ local validation_cases = {
         },
         err = "ssl_key_file and ssl_cert_file must be set to enable TLS",
     },
+    ["log_requests_invalid_string"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                log_requests = "yes",
+            },
+        },
+        err = "invalid log_requests",
+    },
+    ["log_requests_invalid_type"] = {
+        cfg = {
+            server = {
+                listen = "localhost:123",
+                log_requests = 42,
+            },
+        },
+        err = "log_requests option should be a string",
+    }
 }
 
 for name, case in pairs(validation_cases) do
@@ -310,4 +328,27 @@ g.test_edit_server_address = function()
     result = httpd_role.get_server()
     t.assert(result)
     t.assert_equals(result.port, cfg[httpd_role.DEFAULT_SERVER_NAME].listen)
+end
+
+g.test_log_requests = function()
+    local cfg = {
+        server1 = {
+            listen = 13002,
+            log_requests = 'info',
+        },
+        server2 = {
+            listen = 13003,
+            log_requests = 'verbose',
+        },
+    }
+
+    httpd_role.apply(cfg)
+
+    local server1 = httpd_role.get_server('server1')
+    t.assert(server1)
+    t.assert_type(server1.options.log_requests, 'function')
+
+    local server2 = httpd_role.get_server('server2')
+    t.assert(server2)
+    t.assert_type(server2.options.log_requests, 'function')
 end

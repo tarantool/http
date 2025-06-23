@@ -536,10 +536,15 @@ roles_cfg:
       listen: 8081
     additional:
       listen: '127.0.0.1:8082'
+      log_requests: 'verbose'
 ```
 
 Server address should be provided either as a URI or as a single port
 (in this case, `0.0.0.0` address is used).
+
+You can configure HTTP request logging level using `log_requests` parameter (e.g. "verbose").
+Supported values are "debug", "verbose", "info", "warn" and "error".
+By default, requests are logged at "info" level.
 
 User can access every working HTTP server from the configuration by name,
 using `require('roles.httpd').get_server(name)` method.
