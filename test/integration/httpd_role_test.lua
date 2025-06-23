@@ -129,3 +129,20 @@ g.test_stop_server_after_remove = function(cg)
 
     t.assert_not(helpers.tcp_connection_exists('localhost', 13001))
 end
+
+g.test_change_server_addr_on_the_run = function(cg)
+    local resp = http_client:get('http://0.0.0.0:13001/ping')
+    t.assert_equals(resp.status, 200, 'response not 200')
+    t.assert_equals(resp.body, 'pong')
+
+    local cfg = table.deepcopy(config)
+    cfg.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.httpd'].additional.listen = 'localhost:13001'
+    treegen.write_file(cg.server.chdir, 'config.yaml', yaml.encode(cfg))
+    local _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+
+    t.assert_not(helpers.tcp_connection_exists('0.0.0.0', 13001))
+    resp = http_client:get('http://localhost:13001/ping')
+    t.assert_equals(resp.status, 200, 'response not 200')
+    t.assert_equals(resp.body, 'pong')
+end
