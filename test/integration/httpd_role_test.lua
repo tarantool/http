@@ -9,7 +9,7 @@ local http_client = require('http.client').new()
 
 local helpers = require('test.helpers')
 
-local LOG_LEVEL = {
+local LOG_LEVELS = {
     INFO = 5,
     VERBOSE = 6,
     DEBUG = 7,
@@ -17,11 +17,6 @@ local LOG_LEVEL = {
 
 local g = t.group(nil, t.helpers.matrix({
     use_tls = {true, false},
-    log_level = {
-        LOG_LEVEL.INFO,
-        LOG_LEVEL.VERBOSE,
-        LOG_LEVEL.DEBUG,
-    },
 }))
 
 local ssl_data_dir = fio.abspath(fio.pathjoin(helpers.get_testdir_path(), "ssl_data"))
@@ -102,8 +97,6 @@ g.before_each(function(cg)
     if cg.params.use_tls then
         cfg = tls_config
     end
-
-    cfg.log = {level = cg.params.log_level}
 
     local config_file = treegen.write_file(dir, 'config.yaml',
         yaml.encode(cfg))
@@ -188,31 +181,41 @@ g.test_keep_existing_server_routes_on_config_reload = function(cg)
     t.assert_equals(resp.body, 'pong once')
 end
 
-g.test_log_requests = function(cg)
-    t.skip_if(cg.params.use_tls)
+for log_name, log_lvl in pairs(LOG_LEVELS) do
+    g.before_test('test_log_requests_' .. string.lower(log_name), function(cg)
+        local cfg = table.copy(config)
+        cfg.log = {level = log_lvl}
+        treegen.write_file(cg.server.chdir, 'config.yaml', yaml.encode(cfg))
+        local _, err = cg.server:eval("require('config'):reload()")
+        t.assert_not(err)
+    end)
 
-    local function make_request(address)
-        local resp = http_client:get(string.format('http://%s/ping', address))
-        t.assert_equals(resp.status, 200, 'response not 200')
-    end
+    g['test_log_requests_' .. string.lower(log_name)] = function(cg)
+        t.skip_if(cg.params.use_tls)
 
-    local function assert_should_log(expected)
-        local grep_res = cg.server:grep_log('GET /ping', math.huge)
-        if expected then
-            t.assert(grep_res)
-        else
-            t.assert_not(grep_res)
+        local function make_request(address)
+            local resp = http_client:get(string.format('http://%s/ping', address))
+            t.assert_equals(resp.status, 200, 'response not 200')
         end
+
+        local function assert_should_log(expected)
+            local grep_res = cg.server:grep_log('GET /ping', math.huge)
+            if expected then
+                t.assert(grep_res)
+            else
+                t.assert_not(grep_res)
+            end
+        end
+
+        local log_level = tonumber(log_lvl)
+
+        make_request('localhost:13002')
+        assert_should_log(log_level >= LOG_LEVELS.DEBUG)
+
+        make_request('localhost:13001')
+        assert_should_log(log_level >= LOG_LEVELS.VERBOSE)
+
+        make_request('localhost:13000')
+        assert_should_log(log_level >= LOG_LEVELS.INFO)
     end
-
-    local log_level = tonumber(cg.params.log_level)
-
-    make_request('localhost:13002')
-    assert_should_log(log_level >= LOG_LEVEL.DEBUG)
-
-    make_request('localhost:13001')
-    assert_should_log(log_level >= LOG_LEVEL.VERBOSE)
-
-    make_request('localhost:13000')
-    assert_should_log(log_level >= LOG_LEVEL.INFO)
 end
