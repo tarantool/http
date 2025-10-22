@@ -107,23 +107,37 @@ local function parse_params(node)
     }
 end
 
+local function server_has_changed(name, node_params, host, port)
+    if servers[name].httpd.host ~= host or servers[name].httpd.port ~= port then
+        return true
+    end
+    for k in pairs(node_params) do
+        if k ~= 'listen' and servers[name].httpd.options[k] ~= node_params[k] then
+            return true
+        end
+    end
+    return false
+end
+
 local function apply_http(name, node)
     local host, port, err = parse_listen(node.listen)
     if err ~= nil then
         error("failed to parse URI: " .. err)
     end
 
+    local params = parse_params(node)
+
     if servers[name] == nil then
-        local httpd = http_server.new(host, port, parse_params(node))
+        local httpd = http_server.new(host, port, params)
 
         httpd:start()
         servers[name] = {
             httpd = httpd,
             routes = {},
         }
-    elseif servers[name].httpd.host ~= host or servers[name].httpd.port ~= port then
+    elseif server_has_changed(name, params, host, port) then
         servers[name].httpd:stop()
-        servers[name].httpd = http_server.new(host, port, parse_params(node))
+        servers[name].httpd = http_server.new(host, port, params)
         servers[name].httpd:start()
     end
 end

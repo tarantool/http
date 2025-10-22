@@ -233,3 +233,25 @@ for log_name, log_lvl in pairs(LOG_LEVELS) do
         assert_should_log(log_level >= LOG_LEVELS.INFO)
     end
 end
+
+g.test_enable_tls_on_config_reload = function(cg)
+    -- We should start with no tls firstly.
+    t.skip_if(cg.params.use_tls)
+
+    local resp = http_client:get('http://localhost:13000/ping')
+    t.assert_equals(resp.status, 200, 'response not 200')
+    t.assert_equals(resp.body, 'pong')
+
+    treegen.write_file(cg.server.chdir, 'config.yaml', yaml.encode(tls_config))
+    local _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+
+    resp = http_client:get('https://localhost:13000/ping', {
+        ca_file = fio.pathjoin(ssl_data_dir, 'ca.crt')
+    })
+    t.assert_equals(resp.status, 200, 'response not 200')
+    t.assert_equals(resp.body, 'pong')
+
+    local resp = http_client:get('http://localhost:13000/ping')
+    t.assert_equals(resp.status, 444, 'response not 444')
+end
