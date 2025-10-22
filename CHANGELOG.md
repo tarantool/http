@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## Fixed
 
 - Do not recreate server if it's address and port were not changed (#219).
+- Server doesn't change after updating parameters on config reload (#216).
 
 ## [1.8.0] - 2025-07-07
 
