@@ -135,20 +135,27 @@ g.test_httpd_role_usage = function(cg)
 end
 
 g.test_stop_server_after_remove = function(cg)
-    local resp = http_client:get('http://localhost:13001/ping')
+    local protocol = cg.params.use_tls and 'https' or 'http'
+
+    t.assert(helpers.tcp_connection_exists('localhost', 13000))
+    local resp = http_client:get(protocol .. '://localhost:13000/ping', {
+        ca_file = cg.params.use_tls and fio.pathjoin(ssl_data_dir, 'ca.crt'),
+    })
     t.assert_equals(resp.status, 200, 'response not 200')
     t.assert_equals(resp.body, 'pong')
 
     local cfg = table.deepcopy(config)
-    cfg.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.httpd'].additional = nil
+    cfg.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.httpd'].default = nil
     treegen.write_file(cg.server.chdir, 'config.yaml', yaml.encode(cfg))
     local _, err = cg.server:eval("require('config'):reload()")
     t.assert_not(err)
 
-    t.assert_not(helpers.tcp_connection_exists('localhost', 13001))
+    t.assert_not(helpers.tcp_connection_exists('localhost', 13000))
 end
 
 g.test_change_server_addr_on_the_run = function(cg)
+    t.skip_if(cg.params.use_tls, 'no certs for testing addr')
+
     local resp = http_client:get('http://0.0.0.0:13001/ping')
     t.assert_equals(resp.status, 200, 'response not 200')
     t.assert_equals(resp.body, 'pong')
@@ -166,7 +173,11 @@ g.test_change_server_addr_on_the_run = function(cg)
 end
 
 g.test_keep_existing_server_routes_on_config_reload = function(cg)
-    local resp = http_client:get('http://0.0.0.0:13001/ping_once')
+    local protocol = cg.params.use_tls and 'https' or 'http'
+
+    local resp = http_client:get(protocol .. '://localhost:13000/ping_once', {
+        ca_file = cg.params.use_tls and fio.pathjoin(ssl_data_dir, 'ca.crt'),
+    })
     t.assert_equals(resp.status, 200, 'response not 200')
     t.assert_equals(resp.body, 'pong once')
 
@@ -176,7 +187,10 @@ g.test_keep_existing_server_routes_on_config_reload = function(cg)
     local _, err = cg.server:eval("require('config'):reload()")
     t.assert_not(err)
 
-    resp = http_client:get('http://0.0.0.0:13001/ping_once')
+    t.assert(helpers.tcp_connection_exists('localhost', 13000))
+    resp = http_client:get(protocol .. '://localhost:13000/ping_once', {
+        ca_file = cg.params.use_tls and fio.pathjoin(ssl_data_dir, 'ca.crt'),
+    })
     t.assert_equals(resp.status, 200, 'response not 200')
     t.assert_equals(resp.body, 'pong once')
 end
