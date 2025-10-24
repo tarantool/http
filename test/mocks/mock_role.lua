@@ -1,6 +1,7 @@
 local M = {dependencies = { 'roles.httpd' }}
 
 local servers = {}
+local applied = {}
 
 M.validate = function() end
 
@@ -14,6 +15,15 @@ M.apply = function(conf)
             }, function(tx)
                 return tx:render({text = 'pong'})
             end)
+
+            if applied[server.id] == nil then
+                servers[server.id]:route({
+                    path = '/ping_once',
+                }, function(tx)
+                    return tx:render({text = 'pong once'})
+                end)
+                applied[server.id] = {}
+            end
         end
     end
 end
