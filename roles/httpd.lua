@@ -121,7 +121,7 @@ local function apply_http(name, node)
             httpd = httpd,
             routes = {},
         }
-    elseif servers[name].host ~= host or servers[name].port ~= port then
+    elseif servers[name].httpd.host ~= host or servers[name].httpd.port ~= port then
         servers[name].httpd:stop()
         servers[name].httpd = http_server.new(host, port, parse_params(node))
         servers[name].httpd:start()
