@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Fixed
 
+- Do not recreate server if it's address and port were not changed (#219).
+
 ## [1.8.0] - 2025-07-07
 
 The release introduces a new log level configuration option in `httpd` role
