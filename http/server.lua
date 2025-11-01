@@ -1328,7 +1328,7 @@ local function create_ssl_ctx(host, port, opts)
             )
         end
 
-        sslsocket.ctx_set_verify(ctx, 0x01 + 0x02)
+        sslsocket.ctx_set_verify(ctx, 0x00)
     end
 
     if opts.ssl_ciphers ~= nil then
