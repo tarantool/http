@@ -96,10 +96,6 @@ local client_test_cases = {
             ssl_cert_file = fio.pathjoin(ssl_data_dir, 'server.crt'),
             ssl_ca_file = fio.pathjoin(ssl_data_dir, 'ca.crt'),
         },
-        request_opts = {
-            ssl_cert = fio.pathjoin(ssl_data_dir, 'client.crt'),
-            ssl_key = fio.pathjoin(ssl_data_dir, 'client.key'),
-        },
     },
     test_client_password_key_missing = {
         ssl_opts = {
