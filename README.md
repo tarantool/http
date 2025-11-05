@@ -604,6 +604,7 @@ roles_cfg:
         ssl_ciphers: "cipher1:cipher2"
         ssl_password: "password"
         ssl_password_file: "path/to/ssl/password"
+        ssl_verify_client: "off"
 ```
 
 This role accepts a server by name from a config and creates a route to return 
