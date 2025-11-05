@@ -56,6 +56,12 @@ pcall(ffi.cdef, [[
                  const void *needle, size_t needlelen);
 ]])
 
+local SET_VERIFY_FLAGS = {
+    SSL_VERIFY_NONE = 0x00,
+    SSL_VERIFY_PEER = 0x01,
+    SSL_VERIFY_FAIL_IF_NO_PEER = 0x02,
+}
+
 local function slice_wait(timeout, starttime)
     if timeout == nil then
         return nil
@@ -452,6 +458,8 @@ local function tcp_server(host, port, handler, timeout, sslctx)
 end
 
 return {
+    SET_VERIFY_FLAGS = SET_VERIFY_FLAGS,
+
     tls_server_method = tls_server_method,
 
     ctx = ctx,

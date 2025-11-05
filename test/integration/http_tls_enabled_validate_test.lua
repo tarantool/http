@@ -105,6 +105,12 @@ local test_cases = {
         },
         expected_err_msg = "ssl_ciphers option must be a string",
     },
+    ssl_verify_client_incorrect_value = {
+        opts = {
+            ssl_verify_client = "unknown",
+        },
+        expected_err_msg = '"unknown" option not exists. Available options: "on", "off", "optional"'
+    },
 }
 
 for name, case in pairs(test_cases) do

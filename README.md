@@ -158,6 +158,10 @@ httpd = require('http.server').new(host, port[, { options } ])
     * `ssl_ciphers` is a colon-separated list of SSL ciphers, optional;
     * `ssl_password` is a password for decrypting SSL private key, optional;
     * `ssl_password_file` is a SSL file with key for decrypting SSL private key, optional.
+    * `ssl_verify_client` is an option that allows to verify client. It has following values:
+        * `off` (default) means that no client's certs will be verified;
+        * `on` means that server will verify client's certs;
+        * `optional` means that server will verify client's certs only if it exist.
 
 ## Using routes
 
