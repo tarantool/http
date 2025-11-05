@@ -12,6 +12,16 @@ helpers.base_host = '127.0.0.1'
 helpers.base_uri = ('http://%s:%s'):format(helpers.base_host, helpers.base_port)
 helpers.tls_uri = ('https://%s:%s'):format('localhost', helpers.base_port)
 
+local is_tarantool1 = luatest_utils.version_ge(
+    luatest_utils.get_tarantool_version(),
+    luatest_utils.version(1, 0, 0)
+)
+
+helpers.CONNECTION_REFUSED_ERR_MSG = "Failure when receiving data from the peer: Connection refused"
+if is_tarantool1 then
+    helpers.CONNECTION_REFUSED_ERR_MSG = "Failure when receiving data from the peer"
+end
+
 helpers.get_testdir_path = function()
     local path = os.getenv('LUA_SOURCE_DIR') or './'
     return fio.pathjoin(path, 'test')

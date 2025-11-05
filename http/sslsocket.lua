@@ -56,6 +56,18 @@ pcall(ffi.cdef, [[
                  const void *needle, size_t needlelen);
 ]])
 
+local SET_VERIFY_FLAGS = {
+    SSL_VERIFY_NONE = 0x00,
+    SSL_VERIFY_PEER = 0x01,
+    SSL_VERIFY_FAIL_IF_NO_PEER = 0x02,
+}
+
+local VERIFY_CLIENT_OPTS = {
+    off = SET_VERIFY_FLAGS.SSL_VERIFY_NONE,
+    optional = SET_VERIFY_FLAGS.SSL_VERIFY_PEER,
+    on = bit.bor(SET_VERIFY_FLAGS.SSL_VERIFY_PEER, SET_VERIFY_FLAGS.SSL_VERIFY_FAIL_IF_NO_PEER),
+}
+
 local function slice_wait(timeout, starttime)
     if timeout == nil then
         return nil
@@ -162,8 +174,9 @@ local function ctx_set_cipher_list(ctx, str)
     return true
 end
 
-local function ctx_set_verify(ctx, flags)
-    ffi.C.SSL_CTX_set_verify(ctx, flags, box.NULL)
+local function ctx_set_verify(ctx, mode)
+    mode = mode or 'off'
+    ffi.C.SSL_CTX_set_verify(ctx, VERIFY_CLIENT_OPTS[mode], box.NULL)
 end
 
 local default_ctx = ctx(ffi.C.TLS_server_method())

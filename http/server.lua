@@ -1328,7 +1328,7 @@ local function create_ssl_ctx(host, port, opts)
             )
         end
 
-        sslsocket.ctx_set_verify(ctx, 0x00)
+        sslsocket.ctx_set_verify(ctx, opts.ssl_verify_client)
     end
 
     if opts.ssl_ciphers ~= nil then
@@ -1370,6 +1370,12 @@ local function httpd_start(self)
     return self
 end
 
+local AVAILABLE_SSL_VERIFY_CLIENT_OPTS = {
+    off = true,
+    optional = true,
+    on = true,
+}
+
 -- validate_ssl_opts validates ssl_opts and returns true if at least ssl_cert_file
 -- and ssl_key_file parameters are not nil.
 local function validate_ssl_opts(opts)
@@ -1381,6 +1387,12 @@ local function validate_ssl_opts(opts)
 
             if type(value) ~= 'string' then
                 errorf("%s option must be a string", key)
+            end
+
+            if key == 'ssl_verify_client' then
+                if AVAILABLE_SSL_VERIFY_CLIENT_OPTS[value] == nil then
+                    errorf('%q option not exists. Available options: "on", "off", "optional"', value)
+                end
             end
 
             if string.find(key, 'file') ~= nil and fio.path.exists(value) ~= true then
@@ -1429,6 +1441,7 @@ local exports = {
             ssl_password_file = options.ssl_password_file,
             ssl_ca_file = options.ssl_ca_file,
             ssl_ciphers = options.ssl_ciphers,
+            ssl_verify_client = options.ssl_verify_client,
         })
 
         local default = {
@@ -1499,6 +1512,7 @@ local exports = {
                     ssl_password_file = self.options.ssl_password_file,
                     ssl_ca_file = self.options.ssl_ca_file,
                     ssl_ciphers = self.options.ssl_ciphers,
+                    ssl_verify_client = self.options.ssl_verify_client,
                 })
                 return sslsocket.tcp_server(host, port, handler, timeout, ssl_ctx)
             end
