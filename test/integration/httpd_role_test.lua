@@ -255,3 +255,59 @@ g.test_enable_tls_on_config_reload = function(cg)
     local resp = http_client:get('http://localhost:13000/ping')
     t.assert_equals(resp.status, 444, 'response not 444')
 end
+
+g.test_ssl_verify_client = function(cg)
+    t.skip_if(not cg.params.use_tls, 'tls config required')
+
+    local cfg = table.copy(tls_config)
+
+    cfg.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.httpd'].default
+        .ssl_ca_file = fio.pathjoin(ssl_data_dir, 'ca.crt')
+    cfg.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.httpd'].default
+        .ssl_verify_client = "on"
+    treegen.write_file(cg.server.chdir, 'config.yaml', yaml.encode(cfg))
+    local _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+
+    t.assert_error_msg_contains(helpers.CONNECTION_REFUSED_ERR_MSG, function()
+        http_client:get('https://localhost:13000/ping', {
+            ca_file = fio.pathjoin(ssl_data_dir, 'ca.crt')
+        })
+    end)
+
+    local resp = http_client:get('https://localhost:13000/ping', {
+        ca_file = fio.pathjoin(ssl_data_dir, 'ca.crt'),
+        ssl_cert = fio.pathjoin(ssl_data_dir, 'client.crt'),
+        ssl_key = fio.pathjoin(ssl_data_dir, 'client.key'),
+    })
+    t.assert_equals(resp.status, 200, 'response not 200')
+    t.assert_equals(resp.body, 'pong')
+
+    cfg.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.httpd'].default
+        .ssl_verify_client = "optional"
+    treegen.write_file(cg.server.chdir, 'config.yaml', yaml.encode(cfg))
+    _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+
+    t.assert_error_msg_contains(helpers.CONNECTION_REFUSED_ERR_MSG, function()
+        http_client:get('https://localhost:13000/ping', {
+            ca_file = fio.pathjoin(ssl_data_dir, 'ca.crt'),
+            ssl_cert = fio.pathjoin(ssl_data_dir, 'bad_client.crt'),
+            ssl_key = fio.pathjoin(ssl_data_dir, 'bad_client.key'),
+        })
+    end)
+
+    resp = http_client:get('https://localhost:13000/ping', {
+        ca_file = fio.pathjoin(ssl_data_dir, 'ca.crt'),
+        ssl_cert = fio.pathjoin(ssl_data_dir, 'client.crt'),
+        ssl_key = fio.pathjoin(ssl_data_dir, 'client.key'),
+    })
+    t.assert_equals(resp.status, 200, 'response not 200')
+    t.assert_equals(resp.body, 'pong')
+end
+
+g.after_test('test_ssl_verify_client', function(cg)
+    treegen.write_file(cg.server.chdir, 'config.yaml', yaml.encode(tls_config))
+    local _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+end)
