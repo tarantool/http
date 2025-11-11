@@ -6,22 +6,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-### Added
-
-### Changed
-
-### Fixed
-
-## [1.9.0] - 2025-11-11
-
-The release introduces a new `ssl_verify_client` option and changes default
-behavior with provided `ca_file` param. Also a few bugs were fixed.
-
-### Added
+## Added
 
 - `ssl_verify_client` option (#207).
 
-### Fixed
+## Changed
+
+## Fixed
 
 - Do not recreate server if it's address and port were not changed (#219).
 - Server doesn't change after updating parameters on config reload (#216).
