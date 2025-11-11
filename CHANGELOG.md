@@ -8,8 +8,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Added
 
-- `ssl_verify_client` option (#207).
-
 ## Changed
 
 ## Fixed
