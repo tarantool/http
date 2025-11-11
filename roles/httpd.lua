@@ -104,7 +104,6 @@ local function parse_params(node)
         ssl_password_file = node.ssl_password_file,
         ssl_ca_file = node.ssl_ca_file,
         ssl_ciphers = node.ssl_ciphers,
-        ssl_verify_client = node.ssl_verify_client,
     }
 end
 
