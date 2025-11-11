@@ -9,6 +9,10 @@ local g = t.group('ssl')
 
 local ssl_data_dir = fio.pathjoin(helpers.get_testdir_path(), "ssl_data")
 
+g.before_all(function()
+    helpers.skip_if_ssl_not_enabled()
+end)
+
 local server_test_cases = {
     test_key_password_missing = {
         ssl_opts = {

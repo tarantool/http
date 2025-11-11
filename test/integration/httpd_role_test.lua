@@ -88,6 +88,10 @@ tls_config.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.ht
 tls_config.groups['group-001'].replicasets['replicaset-001'].roles_cfg['roles.httpd'].default
     .ssl_password_file = fio.pathjoin(ssl_data_dir, 'passwords')
 
+g.before_all(function()
+    helpers.skip_if_ssl_not_enabled()
+end)
+
 g.before_each(function(cg)
     helpers.skip_if_not_tarantool3()
 

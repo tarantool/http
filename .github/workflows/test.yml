@@ -12,9 +12,14 @@ jobs:
       matrix:
         tarantool: ['1.10', '2.10', '2.11', '3.1', '3.2']
         coveralls: [false]
+        static-build: [false]
         include:
-          - tarantool: '2.11'
+          - tarantool: '3.5'
             coveralls: true
+            static-build: false
+          - tarantool: '3.5'
+            coveralls: false
+            static-build: true
     runs-on: [ubuntu-22.04]
     steps:
       - uses: actions/checkout@master
@@ -32,7 +37,8 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
 
-      - name: Install Tarantool
+      - name: Install dynamic Tarantool
+        if: matrix.static-build == false
         run: tt install tarantool ${{ matrix.tarantool }} --dynamic
 
       - name: Cache rocks

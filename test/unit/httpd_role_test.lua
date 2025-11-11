@@ -254,6 +254,9 @@ for name, case in pairs(validation_cases) do
     )
 
     g[test_name] = function()
+        if name:find('ssl_') ~= nil and case.err == nil then
+            helpers.skip_if_ssl_not_enabled()
+        end
         local ok, res = pcall(httpd_role.validate, case.cfg)
 
         if case.err ~= nil then
