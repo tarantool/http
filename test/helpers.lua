@@ -148,4 +148,17 @@ helpers.tcp_connection_exists = function(host, port)
     return ok
 end
 
+local ffi = require('ffi')
+local has_tls_method = pcall(function()
+    return ffi.C.TLS_server_method() ~= nil
+end)
+
+helpers.skip_if_ssl_not_enabled = function()
+    luatest.skip_if(not has_tls_method, 'tarantool does not support ssl')
+end
+
+helpers.skip_if_ssl_enabled = function()
+    luatest.skip_if(has_tls_method, 'tarantool supports ssl')
+end
+
 return helpers

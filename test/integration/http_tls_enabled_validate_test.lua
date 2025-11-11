@@ -111,10 +111,22 @@ local test_cases = {
         },
         expected_err_msg = '"unknown" option not exists. Available options: "on", "off", "optional"'
     },
+    ssl_socket_not_supported = {
+        check_ssl = true,
+        opts = {
+            ssl_cert_file = fio.pathjoin(ssl_data_dir, 'server.crt'),
+            ssl_key_file = fio.pathjoin(ssl_data_dir, 'server.key'),
+        },
+        expected_err_msg = 'ssl socket is not supported',
+    }
 }
 
 for name, case in pairs(test_cases) do
     g['test_ssl_option_' .. name] = function()
+        helpers.skip_if_ssl_not_enabled()
+        if case.check_ssl == true then
+            helpers.skip_if_ssl_enabled()
+        end
         t.assert_error_msg_contains(case.expected_err_msg, function()
             http_server.new('host', 8080, case.opts)
         end)
