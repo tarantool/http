@@ -55,7 +55,7 @@ add_custom_target(coverage
 )
 
 if(DEFINED ENV{GITHUB_TOKEN})
-  set(COVERALLS_COMMAND ${LUACOVCOVERALLS} --include ^http --verbose --repo-token $ENV{GITHUB_TOKEN})
+  set(COVERALLS_COMMAND ${LUACOVCOVERALLS} --include ^http --include ^roles --verbose --repo-token $ENV{GITHUB_TOKEN})
 else()
   set(COVERALLS_COMMAND ${CMAKE_COMMAND} -E echo "Skipped uploading to coveralls.io: no token.")
 endif()
