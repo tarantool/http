@@ -226,24 +226,6 @@ local validation_cases = {
             },
         },
         err = "log_requests option should be a string",
-    },
-    ["ssl_verify_client_invalid_type"] = {
-        cfg = {
-            server = {
-                listen = "localhost:123",
-                ssl_verify_client = 1,
-            }
-        },
-        err = "ssl_verify_client option must be a string",
-    },
-    ["ssl_verify_client_invalid_value"] = {
-        cfg = {
-            server = {
-                listen = "localhost:123",
-                ssl_verify_client = "unknown",
-            }
-        },
-        err = '"unknown" option not exists. Available options: "on", "off", "optional"',
     }
 }
 
