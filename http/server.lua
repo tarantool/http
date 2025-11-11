@@ -1296,12 +1296,6 @@ local function url_for_httpd(httpd, name, args, query)
     end
 end
 
-local VERIFY_CLIENT_OPTS = {
-    off = sslsocket.SET_VERIFY_FLAGS.SSL_VERIFY_NONE,
-    optional = sslsocket.SET_VERIFY_FLAGS.SSL_VERIFY_PEER,
-    on = bit.bor(sslsocket.SET_VERIFY_FLAGS.SSL_VERIFY_PEER, sslsocket.SET_VERIFY_FLAGS.SSL_VERIFY_FAIL_IF_NO_PEER),
-}
-
 local function create_ssl_ctx(host, port, opts)
     local ok, ctx = pcall(sslsocket.ctx, sslsocket.tls_server_method())
     if ok ~= true then
@@ -1334,11 +1328,7 @@ local function create_ssl_ctx(host, port, opts)
             )
         end
 
-        local set_verify_flag = (
-            opts.ssl_verify_client and VERIFY_CLIENT_OPTS[opts.ssl_verify_client] or
-            VERIFY_CLIENT_OPTS.off
-        )
-        sslsocket.ctx_set_verify(ctx, set_verify_flag)
+        sslsocket.ctx_set_verify(ctx, 0x00)
     end
 
     if opts.ssl_ciphers ~= nil then
@@ -1393,12 +1383,6 @@ local function validate_ssl_opts(opts)
                 errorf("%s option must be a string", key)
             end
 
-            if key == 'ssl_verify_client' then
-                if VERIFY_CLIENT_OPTS[value] == nil then
-                    errorf('%q option not exists. Available options: "on", "off", "optional"', value)
-                end
-            end
-
             if string.find(key, 'file') ~= nil and fio.path.exists(value) ~= true then
                 errorf("file %q not exists", value)
             end
@@ -1445,7 +1429,6 @@ local exports = {
             ssl_password_file = options.ssl_password_file,
             ssl_ca_file = options.ssl_ca_file,
             ssl_ciphers = options.ssl_ciphers,
-            ssl_verify_client = options.ssl_verify_client,
         })
 
         local default = {
@@ -1516,7 +1499,6 @@ local exports = {
                     ssl_password_file = self.options.ssl_password_file,
                     ssl_ca_file = self.options.ssl_ca_file,
                     ssl_ciphers = self.options.ssl_ciphers,
-                    ssl_verify_client = self.options.ssl_verify_client,
                 })
                 return sslsocket.tcp_server(host, port, handler, timeout, ssl_ctx)
             end
