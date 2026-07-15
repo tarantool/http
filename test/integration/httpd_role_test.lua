@@ -170,7 +170,16 @@ g.test_change_server_addr_on_the_run = function(cg)
     local _, err = cg.server:eval("require('config'):reload()")
     t.assert_not(err)
 
-    t.assert_not(helpers.tcp_connection_exists('0.0.0.0', 13001))
+    t.assert_equals(cg.server:eval([[
+        local httpd = require('roles.httpd').get_server('additional')
+        return {
+            host = httpd.host,
+            port = httpd.port,
+        }
+    ]]), {
+        host = 'localhost',
+        port = 13001,
+    })
     resp = http_client:get('http://localhost:13001/ping')
     t.assert_equals(resp.status, 200, 'response not 200')
     t.assert_equals(resp.body, 'pong')
