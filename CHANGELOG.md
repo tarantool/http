@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Fixed
 
+## [1.9.1] - 2026-08-10
+
+The release contains infrastructure fixes and does not change the module behavior.
+
 ## [1.9.0] - 2025-11-12
 
 The release introduces a new `ssl_verify_client` option and changes default
